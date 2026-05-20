@@ -1,0 +1,411 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 投资看板 - 现代轻量级玻璃拟态风格 */
+:root {
+  --bg-primary: #F8F9FC;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-hover: rgba(255, 255, 255, 0.95);
+  --accent-orange: #FF8E6E;
+  --accent-orange-light: #FFB299;
+  --accent-purple: #5E5CE6;
+  --accent-purple-light: #7B78E8;
+  --text-primary: #1A1A2E;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+  --border-subtle: rgba(255, 255, 255, 0.6);
+  --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.04);
+  --shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* 玻璃拟态卡片 */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 24px;
+  box-shadow: var(--shadow-soft);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* 软阴影卡片 */
+.soft-card {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.soft-card:hover {
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.06);
+}
+
+/* 强调色 */
+.accent-orange {
+  color: var(--accent-orange);
+}
+
+.bg-accent-orange {
+  background: var(--accent-orange);
+}
+
+.accent-purple {
+  color: var(--accent-purple);
+}
+
+.bg-accent-purple {
+  background: var(--accent-purple);
+}
+
+/* 渐变背景 */
+.gradient-orange {
+  background: linear-gradient(135deg, var(--accent-orange) 0%, var(--accent-orange-light) 100%);
+}
+
+.gradient-purple {
+  background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-purple-light) 100%);
+}
+
+/* 上涨/下跌 */
+.gain {
+  color: #34C759;
+}
+
+.loss {
+  color: #FF3B30;
+}
+
+/* 按钮样式 */
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-orange) 0%, var(--accent-orange-light) 100%);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 16px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(255, 142, 110, 0.3);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 6px 24px rgba(255, 142, 110, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-purple-light) 100%);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 16px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(94, 92, 230, 0.3);
+}
+
+.btn-secondary:hover {
+  box-shadow: 0 6px 24px rgba(94, 92, 230, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Tab 样式 */
+.tab-item {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  position: relative;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border-radius: 12px;
+}
+
+.tab-item:hover {
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.tab-item.active {
+  color: white;
+  background: var(--accent-orange);
+}
+
+/* 信用卡堆叠效果 */
+.card-stack {
+  position: relative;
+}
+
+.card-stack .card-1 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: rotate(-3deg);
+  z-index: 1;
+}
+
+.card-stack .card-2 {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  transform: rotate(2deg);
+  z-index: 2;
+}
+
+.card-stack .card-3 {
+  position: relative;
+  z-index: 3;
+}
+
+/* 圆形进度指示器 */
+.circular-progress {
+  transform: rotate(-90deg);
+}
+
+.circular-progress circle {
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+/* 标签样式 */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-orange {
+  background: rgba(255, 142, 110, 0.15);
+  color: var(--accent-orange);
+}
+
+.tag-purple {
+  background: rgba(94, 92, 230, 0.15);
+  color: var(--accent-purple);
+}
+
+.tag-green {
+  background: rgba(52, 199, 89, 0.15);
+  color: #34C759;
+}
+
+.tag-red {
+  background: rgba(255, 59, 48, 0.15);
+  color: #FF3B30;
+}
+
+/* 表格样式 */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 14px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.data-table td {
+  padding: 16px;
+  font-size: 14px;
+}
+
+.data-table tr {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.data-table tr:last-child {
+  border-bottom: none;
+}
+
+.data-table tr:hover td {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* 输入框 */
+.input-soft {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.input-soft:focus {
+  outline: none;
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 0 4px rgba(255, 142, 110, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.input-soft::placeholder {
+  color: var(--text-muted);
+}
+
+/* 图表容器 */
+.chart-container {
+  position: relative;
+  padding: 20px;
+}
+
+/* 动画 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* 卡片入场动画 */
+.card-enter {
+  animation: fadeInUp 0.6s ease forwards;
+  opacity: 0;
+}
+
+.card-enter:nth-child(1) { animation-delay: 0ms; }
+.card-enter:nth-child(2) { animation-delay: 100ms; }
+.card-enter:nth-child(3) { animation-delay: 200ms; }
+.card-enter:nth-child(4) { animation-delay: 300ms; }
+
+/* 头像 */
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  object-fit: cover;
+}
+
+/* 侧边栏样式 */
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  padding: 14px 18px;
+  border-radius: 16px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.sidebar-link:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+}
+
+.sidebar-link.active {
+  background: var(--accent-orange);
+  color: white;
+}
+
+/* 统计数字 */
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* 进度条 */
+.progress-soft {
+  height: 8px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-soft-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+/* 头像 */
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* 圆角规范 */
+.rounded-2xl {
+  border-radius: 16px;
+}
+
+.rounded-3xl {
+  border-radius: 24px;
+}
+
+/* 内发光效果 */
+.inner-glow {
+  box-shadow: inset 0 2px 8px rgba(255, 142, 110, 0.1);
+}
