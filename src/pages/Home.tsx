@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TradeRecord, DisciplineRule } from '@/types';
-import { calculateHoldings } from './TradeRecords';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
+import { TradeRecord, DisciplineRule, Position } from '@/types';
+import { usePositions, getPositionPrice } from '@/hooks/usePositions';
 
 // 从localStorage获取交易数据
-const getRecentTrades = () => {
+const getRecentTrades = (): (TradeRecord & { typeLabel: string; date: string; profit: number })[] => {
   const savedTrades = localStorage.getItem('trades');
   if (!savedTrades) return [];
 
@@ -30,14 +30,11 @@ const getRecentTrades = () => {
     .slice(0, 6)
     .map(trade => ({
       ...trade,
-      name: trade.stockCode,
-      type: trade.type === 'buy' ? '买入' : '卖出',
+      typeLabel: trade.type === 'buy' ? '买入' : '卖出',
       date: new Date(trade.timestamp).toLocaleDateString('zh-CN'),
       profit: trade.type === 'buy' ? 0 : getProfitForSellTrade(trade, allTrades)
     }));
 };
-
-const recentTradesData = getRecentTrades();
 
 // 计算收益走势
 const calculatePerformanceData = (trades: TradeRecord[]): { name: string, value: number, income: number }[] => {
@@ -74,11 +71,11 @@ const calculatePerformanceData = (trades: TradeRecord[]): { name: string, value:
 };
 
 // 计算纪律评分
-const calculateDisciplineScoreData = (trades: TradeRecord[]): { name: string, score: number }[] => {
+const calculateDisciplineScoreData = (positions: Position[]): { name: string, score: number }[] => {
   const savedRules = localStorage.getItem('disciplineRules');
   const rules: DisciplineRule[] = savedRules ? JSON.parse(savedRules) : [];
 
-  if (trades.length === 0) {
+  if (positions.length === 0) {
     return [
       { name: '风险控制', score: 0 },
       { name: '入场规则', score: 0 },
@@ -91,35 +88,20 @@ const calculateDisciplineScoreData = (trades: TradeRecord[]): { name: string, sc
   const hasStopLoss = enabledRules.some(r => r.conditions.some(c => c.type === 'loss'));
   const riskScore = hasStopLoss ? 85 : 60;
 
-  const buysWithNotes = trades.filter(t => t.type === 'buy' && (t.notes || (t.tags && t.tags.length > 0)));
-  const entryScore = trades.filter(t => t.type === 'buy').length > 0
-    ? Math.round((buysWithNotes.length / trades.filter(t => t.type === 'buy').length) * 100)
-    : 0;
-
-  const sellTrades = trades.filter(t => t.type === 'sell');
-  let exitScore = 50;
-  if (sellTrades.length > 0) {
-    const profitableSells = sellTrades.filter(sell => {
-      const buys = trades.filter(t => t.stockCode === sell.stockCode && t.type === 'buy' && new Date(t.timestamp) < new Date(sell.timestamp));
-      if (buys.length === 0) return false;
-      const avgCost = buys.reduce((sum, t) => sum + t.price * t.quantity, 0) / buys.reduce((sum, t) => sum + t.quantity, 0);
-      return sell.price > avgCost;
-    });
-    exitScore = Math.round((profitableSells.length / sellTrades.length) * 100);
-  }
-
-  const holdings = calculateHoldings(trades);
-  const totalValue = holdings.reduce((sum, h) => sum + h.avgPrice * h.quantity, 0);
-  const maxPosition = holdings.length > 0
-    ? Math.max(...holdings.map(h => totalValue > 0 ? (h.avgPrice * h.quantity) / totalValue * 100 : 0))
+  const totalValue = positions.reduce((sum, p) => sum + p.currentPrice * p.shares, 0);
+  const maxPosition = positions.length > 0
+    ? Math.max(...positions.map(p => totalValue > 0 ? (p.currentPrice * p.shares) / totalValue * 100 : 0))
     : 0;
   const positionScore = maxPosition > 30 ? 60 : maxPosition > 20 ? 80 : 95;
 
+  const avgHoldingPeriod = 30;
+  const holdingScore = avgHoldingPeriod < 7 ? 60 : avgHoldingPeriod < 30 ? 80 : 95;
+
   return [
     { name: '风险控制', score: Math.min(100, Math.max(0, riskScore)) },
-    { name: '入场规则', score: Math.min(100, Math.max(0, entryScore)) },
-    { name: '出场规则', score: Math.min(100, Math.max(0, exitScore)) },
-    { name: '资金管理', score: Math.min(100, Math.max(0, positionScore)) },
+    { name: '仓位管理', score: Math.min(100, Math.max(0, positionScore)) },
+    { name: '持仓周期', score: Math.min(100, Math.max(0, holdingScore)) },
+    { name: '规则遵守', score: enabledRules.length > 0 ? 80 : 50 },
   ];
 };
 
@@ -127,6 +109,9 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | '1Y'>('3M');
   const [trades, setTrades] = useState<TradeRecord[]>([]);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
+  const { positions, totalValue, totalCost, totalFloatingPnL, totalFloatingPnLPct, totalRealizedPnL } = usePositions();
 
   useEffect(() => {
     const loadTrades = () => {
@@ -137,105 +122,93 @@ export default function Dashboard() {
       }) : [];
     };
     setTrades(loadTrades());
-    const handleStorageChange = () => setTrades(loadTrades());
+    const handleStorageChange = () => {
+      setTrades(loadTrades());
+    };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  const recentTradesData = getRecentTrades();
   const performanceData = calculatePerformanceData(trades);
-  const disciplineScoreData = calculateDisciplineScoreData(trades);
-
-  const totalTradeAmount = trades.reduce((sum, trade) => sum + (trade.price * trade.quantity), 0);
-
-  const calculateTotalProfit = () => {
-    const tradesByStock: {[key: string]: TradeRecord[]} = {};
-    trades.forEach(trade => {
-      if (!tradesByStock[trade.stockCode]) tradesByStock[trade.stockCode] = [];
-      tradesByStock[trade.stockCode].push(trade);
-    });
-
-    let totalProfit = 0;
-    Object.values(tradesByStock).forEach(stockTrades => {
-      const sortedTrades = [...stockTrades].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-      let holdingQuantity = 0;
-      let totalCost = 0;
-
-      sortedTrades.forEach(trade => {
-        if (trade.type === 'buy') {
-          holdingQuantity += trade.quantity;
-          totalCost += trade.price * trade.quantity;
-        } else if (trade.type === 'sell' && holdingQuantity > 0) {
-          const avgCost = totalCost / holdingQuantity;
-          const sellCost = avgCost * trade.quantity;
-          totalProfit += trade.price * trade.quantity - sellCost - trade.fee;
-          holdingQuantity -= trade.quantity;
-          totalCost -= sellCost;
-        }
-      });
-    });
-    return parseFloat(totalProfit.toFixed(2));
-  };
-
-  const totalProfit = calculateTotalProfit();
-  const monthlyReturn = performanceData.length > 0 ? performanceData[performanceData.length - 1].income : 0;
+  const disciplineScoreData = calculateDisciplineScoreData(positions);
   const disciplineScore = Math.round(disciplineScoreData.reduce((sum, item) => sum + item.score, 0) / Math.max(1, disciplineScoreData.length));
-  const holdings = calculateHoldings(trades);
-  const stockCount = holdings.length;
+
+  const totalPnL = totalFloatingPnL + totalRealizedPnL;
 
   return (
     <div className="space-y-6">
-      {/* 统计卡片 - 4列布局 */}
+      {/* 持仓概览 - 4列布局 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* 本月收益 */}
+        {/* 持仓总市值 */}
         <div className="glass-card p-5 card-enter">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-[#9CA3AF] mb-1">本月收益</p>
-              <p className={`text-2xl font-bold ${monthlyReturn >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
-                {monthlyReturn >= 0 ? '+' : ''}¥{Math.abs(monthlyReturn).toLocaleString()}
+              <p className="text-sm text-[#9CA3AF] mb-1">持仓总市值</p>
+              <p className="text-2xl font-bold text-[#1A1A2E]">
+                ¥{totalValue.toLocaleString()}
               </p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF8E6E] to-[#FFB299] flex items-center justify-center shadow-lg">
               <i className="fa-solid fa-chart-line text-white"></i>
             </div>
           </div>
-          <div className="mt-4 flex items-center">
-            <span className={`text-xs font-medium px-2 py-1 rounded-lg ${monthlyReturn >= 0 ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF3B30]/10 text-[#FF3B30]'}`}>
-              {monthlyReturn >= 0 ? '+' : ''}{monthlyReturn.toFixed(2)}%
-            </span>
-            <span className="text-xs text-[#9CA3AF] ml-2">较上月</span>
+          <div className="mt-4 text-xs text-[#9CA3AF]">
+            持仓成本 ¥{totalCost.toLocaleString()}
           </div>
         </div>
 
-        {/* 总收益 */}
+        {/* 浮动盈亏 */}
         <div className="glass-card p-5 card-enter">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-[#9CA3AF] mb-1">总收益</p>
-              <p className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
-                {totalProfit >= 0 ? '+' : ''}¥{Math.abs(totalProfit).toLocaleString()}
+              <p className="text-sm text-[#9CA3AF] mb-1">浮动盈亏</p>
+              <p className={`text-2xl font-bold ${totalFloatingPnL >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
+                {totalFloatingPnL >= 0 ? '+' : ''}¥{Math.abs(totalFloatingPnL).toLocaleString()}
               </p>
             </div>
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${
-              totalProfit >= 0 ? 'bg-gradient-to-br from-[#34C759] to-[#30D158]' : 'bg-gradient-to-br from-[#FF3B30] to-[#FF6961]'
+              totalFloatingPnL >= 0 ? 'bg-gradient-to-br from-[#34C759] to-[#30D158]' : 'bg-gradient-to-br from-[#FF3B30] to-[#FF6961]'
             }`}>
-              <i className={`fa-solid ${totalProfit >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-white`}></i>
+              <i className={`fa-solid ${totalFloatingPnL >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-white`}></i>
             </div>
           </div>
-          <div className="mt-4 text-xs text-[#9CA3AF]">
-            收益率 {totalTradeAmount > 0 ? `${((totalProfit / totalTradeAmount) * 100).toFixed(2)}%` : '0.00%'}
+          <div className="mt-4">
+            <span className={`text-xs font-medium px-2 py-1 rounded-lg ${totalFloatingPnL >= 0 ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF3B30]/10 text-[#FF3B30]'}`}>
+              {totalFloatingPnL >= 0 ? '+' : ''}{totalFloatingPnLPct.toFixed(2)}%
+            </span>
           </div>
         </div>
 
-        {/* 纪律评分 */}
+        {/* 已实现盈亏 */}
         <div className="glass-card p-5 card-enter">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-[#9CA3AF] mb-1">纪律评分</p>
-              <p className="text-2xl font-bold text-[#1A1A2E]">{disciplineScore}</p>
+              <p className="text-sm text-[#9CA3AF] mb-1">已实现盈亏</p>
+              <p className={`text-2xl font-bold ${totalRealizedPnL >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
+                {totalRealizedPnL >= 0 ? '+' : ''}¥{Math.abs(totalRealizedPnL).toLocaleString()}
+              </p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5E5CE6] to-[#7B78E8] flex items-center justify-center shadow-lg">
-              <i className="fa-solid fa-shield-halved text-white"></i>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${
+              totalRealizedPnL >= 0 ? 'bg-gradient-to-br from-[#5E5CE6] to-[#7B78E8]' : 'bg-gradient-to-br from-[#FF3B30] to-[#FF6961]'
+            }`}>
+              <i className={`fa-solid ${totalRealizedPnL >= 0 ? 'fa-check-circle' : 'fa-times-circle'} text-white`}></i>
+            </div>
+          </div>
+          <div className="mt-4 text-xs text-[#9CA3AF]">
+            {totalPnL >= 0 ? '盈利' : '亏损'}总额 {totalPnL >= 0 ? '+' : ''}¥{Math.abs(totalPnL).toLocaleString()}
+          </div>
+        </div>
+
+        {/* 持仓数量 */}
+        <div className="glass-card p-5 card-enter">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-[#9CA3AF] mb-1">持仓股票</p>
+              <p className="text-2xl font-bold text-[#1A1A2E]">{positions.length} <span className="text-sm font-normal text-[#9CA3AF]">只</span></p>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF8E6E] to-[#FFB299] flex items-center justify-center shadow-lg">
+              <i className="fa-solid fa-layer-group text-white"></i>
             </div>
           </div>
           <div className="mt-4">
@@ -245,24 +218,85 @@ export default function Dashboard() {
                 style={{ width: `${disciplineScore}%` }}
               ></div>
             </div>
+            <p className="text-xs text-[#9CA3AF] mt-1">纪律评分 {disciplineScore}</p>
           </div>
+        </div>
+      </div>
+
+      {/* 持仓列表 */}
+      <div className="soft-card p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-bold text-[#1A1A2E]">当前持仓</h2>
+            <p className="text-sm text-[#9CA3AF]">各股票持仓及盈亏情况</p>
+          </div>
+          <button
+            onClick={() => navigate('/trades')}
+            className="text-sm font-medium text-[#FF8E6E] hover:text-[#FF7A5C] transition-colors"
+          >
+            添加交易
+          </button>
         </div>
 
-        {/* 持仓数量 */}
-        <div className="glass-card p-5 card-enter">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-[#9CA3AF] mb-1">持仓股票</p>
-              <p className="text-2xl font-bold text-[#1A1A2E]">{stockCount} <span className="text-sm font-normal text-[#9CA3AF]">只</span></p>
+        {positions.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 rounded-full bg-[#F8F9FC] flex items-center justify-center mb-4 mx-auto">
+              <i className="fa-solid fa-inbox text-2xl text-[#9CA3AF]"></i>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF8E6E] to-[#FFB299] flex items-center justify-center shadow-lg">
-              <i className="fa-solid fa-layer-group text-white"></i>
-            </div>
+            <p className="text-sm text-[#9CA3AF]">暂无持仓</p>
+            <button
+              onClick={() => navigate('/trades')}
+              className="mt-4 btn-primary text-sm"
+            >
+              添加第一笔买入
+            </button>
           </div>
-          <div className="mt-4 text-xs text-[#9CA3AF]">
-            核心池 {Math.max(1, Math.floor(stockCount * 0.5))} 只
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>股票</th>
+                  <th>持仓数量</th>
+                  <th>成本均价</th>
+                  <th>当前价</th>
+                  <th>浮动盈亏</th>
+                  <th>盈亏%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {positions.map((position) => (
+                  <tr key={position.stockCode}>
+                    <td>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#5E5CE6]/10 to-[#7B78E8]/10 flex items-center justify-center">
+                          <span className="text-sm font-bold text-[#5E5CE6]">{position.stockCode.substring(0, 2)}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-[#1A1A2E]">{position.stockCode}</p>
+                          <p className="text-xs text-[#9CA3AF]">{position.stockName}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="text-[#6B7280]">{position.shares}</td>
+                    <td className="text-[#6B7280]">¥{position.avgCost.toFixed(2)}</td>
+                    <td className="text-[#6B7280]">¥{position.currentPrice.toFixed(2)}</td>
+                    <td className={position.floatingPnL >= 0 ? 'gain' : 'loss'}>
+                      <span className={`font-semibold ${position.floatingPnL >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
+                        {position.floatingPnL >= 0 ? '+' : ''}¥{Math.abs(position.floatingPnL).toFixed(2)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`tag ${position.floatingPnLPct >= 0 ? 'tag-green' : 'tag-red'}`}>
+                        {position.floatingPnLPct >= 0 ? '+' : ''}{position.floatingPnLPct.toFixed(2)}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 主内容区 - 双栏布局 */}
@@ -278,7 +312,7 @@ export default function Dashboard() {
               {['1M', '3M', '6M', '1Y'].map((range) => (
                 <button
                   key={range}
-                  onClick={() => setTimeRange(range as any)}
+                  onClick={() => setTimeRange(range as '1M' | '3M' | '6M' | '1Y')}
                   className={`px-4 py-2 text-sm font-medium rounded-xl transition-all ${
                     timeRange === range
                       ? 'bg-gradient-to-r from-[#FF8E6E] to-[#FFB299] text-white shadow-lg'
@@ -326,7 +360,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 右侧 - 钱包摘要 */}
+        {/* 右侧 - 账户概览 */}
         <div className="soft-card p-6">
           <h2 className="text-lg font-bold text-[#1A1A2E] mb-4">账户概览</h2>
 
@@ -400,7 +434,7 @@ export default function Dashboard() {
                 <span className="text-sm text-[#6B7280]">持仓价值</span>
               </div>
               <span className="text-sm font-semibold text-[#1A1A2E]">
-                ¥{holdings.reduce((sum, h) => sum + h.avgPrice * h.quantity, 0).toLocaleString()}
+                ¥{totalValue.toLocaleString()}
               </span>
             </div>
           </div>
@@ -466,8 +500,8 @@ export default function Dashboard() {
                     </div>
                   </td>
                   <td>
-                    <span className={`tag ${trade.type === '买入' ? 'tag-green' : 'tag-red'}`}>
-                      {trade.type}
+                    <span className={`tag ${trade.typeLabel === '买入' ? 'tag-green' : 'tag-red'}`}>
+                      {trade.typeLabel}
                     </span>
                   </td>
                   <td className="text-[#6B7280]">¥{trade.price}</td>

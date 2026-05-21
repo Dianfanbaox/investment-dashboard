@@ -20,14 +20,6 @@ const ruleTemplates = [
   { id: 't6', name: '持仓时间限制', description: '单笔持仓超过指定天数后提醒检视', category: '持仓管理', icon: 'fa-clock', severity: 'low' },
 ];
 
-// 模拟违规记录数据
-const mockViolations: ViolationRecord[] = [
-  { id: 'v1', ruleId: '1', ruleName: '止损规则', description: 'AAPL持仓亏损7%，触发止损提醒', timestamp: new Date('2023-06-18T14:30:00'), severity: 'warning', status: 'resolved' },
-  { id: 'v2', ruleId: '2', ruleName: '仓位控制', description: 'TSLA持仓占比12%，超过10%限制', timestamp: new Date('2023-06-15T10:20:00'), severity: 'error', status: 'pending' },
-  { id: 'v3', ruleId: '3', ruleName: '盈利保护', description: 'MSFT盈利15%，建议止盈', timestamp: new Date('2023-06-12T15:45:00'), severity: 'info', status: 'resolved' },
-  { id: 'v4', ruleId: '1', ruleName: '止损规则', description: 'GOOGL持仓亏损5.5%，触发止损提醒', timestamp: new Date('2023-06-08T11:15:00'), severity: 'warning', status: 'resolved' },
-];
-
 export default function DisciplineSystem() {
   const [rules, setRules] = useState<DisciplineRule[]>(() => {
     const saved = localStorage.getItem('disciplineRules');
@@ -35,7 +27,7 @@ export default function DisciplineSystem() {
   });
   const [violations, setViolations] = useState<ViolationRecord[]>(() => {
     const saved = localStorage.getItem('violationRecords');
-    return saved ? JSON.parse(saved, (k, v) => k === 'timestamp' ? new Date(v) : v) : mockViolations;
+    return saved ? JSON.parse(saved, (k, v) => k === 'timestamp' ? new Date(v) : v) : [];
   });
   const [activeTab, setActiveTab] = useState<'rules' | 'templates' | 'violations'>('rules');
   const [showAddModal, setShowAddModal] = useState(false);

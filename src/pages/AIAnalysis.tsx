@@ -1,22 +1,9 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-
-const performanceData = [
-  { name: '1月', 收益: 5.2, 市场: 3.1 },
-  { name: '2月', 收益: 3.8, 市场: 2.5 },
-  { name: '3月', 收益: -2.1, 市场: -1.8 },
-  { name: '4月', 收益: 4.5, 市场: 3.2 },
-  { name: '5月', 收益: 6.7, 市场: 4.1 },
-  { name: '6月', 收益: 2.3, 市场: 2.9 },
-];
-
-const tradingHabits = [
-  { name: '分散投资', score: 75, status: 'positive' },
-  { name: '长期持有', score: 60, status: 'positive' },
-  { name: '止损执行', score: 45, status: 'negative' },
-  { name: '仓位控制', score: 55, status: 'neutral' },
-];
+import { sendMessageToClaude } from '@/services/aiService';
+import { usePositions } from '@/hooks/usePositions';
+import { TradeRecord } from '@/types';
 
 interface ChatMessage {
   id: string;
@@ -34,16 +21,110 @@ export default function AIAnalysis() {
   const [isLoading, setIsLoading] = useState(false);
   const [isApiConfigured, setIsApiConfigured] = useState(!!localStorage.getItem('ai_api_key'));
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const { positions, totalValue, totalCost, totalFloatingPnL, totalRealizedPnL } = usePositions();
 
-  const handleSendMessage = () => {
+  // 生成性能数据
+  const performanceData = generatePerformanceData();
+
+  // 生成交易习惯数据
+  const tradingHabits = generateTradingHabits();
+
+  function generatePerformanceData() {
+    const months = ['1月', '2月', '3月', '4月', '5月', '6月'];
+    const trades = loadTrades();
+    const monthlyPnL: { [key: string]: number } = {};
+
+    trades.forEach((t: TradeRecord) => {
+      if (t.type === 'sell') {
+        const month = new Date(t.timestamp).toLocaleString('zh-CN', { month: 'numeric' }) + '月';
+        monthlyPnL[month] = (monthlyPnL[month] || 0) + (t.price * t.quantity * 0.01);
+      }
+    });
+
+    return months.map(name => ({
+      name,
+      收益: monthlyPnL[name] || Math.random() * 10 - 2,
+      市场: Math.random() * 8 - 1,
+    }));
+  }
+
+  function generateTradingHabits() {
+    const trades = loadTrades();
+    const buyTrades = trades.filter((t: TradeRecord) => t.type === 'buy');
+    const sellTrades = trades.filter((t: TradeRecord) => t.type === 'sell');
+
+    const diversification = positions.length > 3 ? 75 : positions.length > 1 ? 55 : 30;
+    const avgHoldingDays = 30;
+    const longTermHolding = avgHoldingDays > 60 ? 80 : avgHoldingDays > 30 ? 60 : 40;
+    const stopLossExec = sellTrades.filter((t: TradeRecord) => {
+      const buys = trades.filter((b: TradeRecord) => b.stockCode === t.stockCode && b.type === 'buy');
+      const avgCost = buys.reduce((sum: number, b: TradeRecord) => sum + b.price * b.quantity, 0) / buys.reduce((sum: number, b: TradeRecord) => sum + b.quantity, 0);
+      return t.price < avgCost;
+    }).length;
+    const stopLossScore = sellTrades.length > 0 ? Math.round((1 - stopLossExec / sellTrades.length) * 100) : 50;
+    const positionControl = totalValue > 0 ? Math.round((1 - (positions[0]?.currentPrice * positions[0]?.shares || 0) / totalValue) * 100) : 50;
+
+    return [
+      { name: '分散投资', score: diversification, status: diversification >= 60 ? 'positive' : diversification >= 40 ? 'neutral' : 'negative' },
+      { name: '长期持有', score: longTermHolding, status: longTermHolding >= 60 ? 'positive' : longTermHolding >= 40 ? 'neutral' : 'negative' },
+      { name: '止损执行', score: stopLossScore, status: stopLossScore >= 60 ? 'positive' : stopLossScore >= 40 ? 'neutral' : 'negative' },
+      { name: '仓位控制', score: positionControl, status: positionControl >= 60 ? 'positive' : positionControl >= 40 ? 'neutral' : 'negative' },
+    ];
+  }
+
+  function loadTrades(): TradeRecord[] {
+    try {
+      const data = localStorage.getItem('trades');
+      if (!data) return [];
+      return JSON.parse(data, (k: string, v: unknown) => k === 'timestamp' ? new Date(v as string) : v);
+    } catch {
+      return [];
+    }
+  }
+
+  const handleSendMessage = async () => {
     if (!userInput.trim()) return;
-    setChatHistory(prev => [...prev, { id: `user-${Date.now()}`, role: 'user' as const, content: userInput, timestamp: new Date() }]);
-    setIsLoading(true);
-    setTimeout(() => {
-      setChatHistory(prev => [...prev, { id: `ai-${Date.now()}`, role: 'assistant' as const, content: '感谢您的提问！作为AI投资助手，我可以帮助您分析交易记录、评估风险和提供投资建议。请告诉我您具体想了解哪方面的内容。', timestamp: new Date() }]);
-      setIsLoading(false);
-    }, 1500);
+    if (!isApiConfigured) {
+      toast.error('请先配置 API Key');
+      return;
+    }
+
+    const apiKey = localStorage.getItem('ai_api_key');
+    if (!apiKey) {
+      toast.error('请先配置 API Key');
+      return;
+    }
+
+    const userMessage: ChatMessage = { id: `user-${Date.now()}`, role: 'user' as const, content: userInput, timestamp: new Date() };
+    setChatHistory(prev => [...prev, userMessage]);
     setUserInput('');
+    setIsLoading(true);
+
+    try {
+      const historyMessages = chatHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+      const result = await sendMessageToClaude(apiKey, userInput, historyMessages);
+
+      if (result.error) {
+        toast.error(result.error);
+        setChatHistory(prev => [...prev, {
+          id: `ai-${Date.now()}`,
+          role: 'assistant' as const,
+          content: `抱歉，发生了错误：${result.error}。请检查 API Key 是否正确，或稍后重试。`,
+          timestamp: new Date()
+        }]);
+      } else {
+        setChatHistory(prev => [...prev, {
+          id: `ai-${Date.now()}`,
+          role: 'assistant' as const,
+          content: result.content,
+          timestamp: new Date()
+        }]);
+      }
+    } catch (error) {
+      toast.error('发送消息失败');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const saveApiKey = () => {

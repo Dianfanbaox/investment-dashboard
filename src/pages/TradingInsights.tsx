@@ -1,26 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { TradingInsight } from '@/types';
 import { toast } from 'sonner';
 
-const mockInsights: TradingInsight[] = [
-  { id: '1', title: 'AAPL交易反思', content: '今天对AAPL的交易操作进行了反思，这次能够严格执行止损策略，虽然最终止损离场，但避免了更大的损失。主要收获：坚持预设止损位的重要性，不要对抗市场趋势。', timestamp: new Date('2023-06-15T18:30:00'), tags: ['交易反思', '止损'], relatedTradeIds: ['6'], attachments: [] },
-  { id: '2', title: '市场趋势观察', content: '近期市场整体呈现震荡上行趋势，但板块轮动较快，热点切换频繁。观察到的现象：AI相关板块持续强势，消费板块有企稳迹象。', timestamp: new Date('2023-06-10T20:15:00'), tags: ['市场分析', '策略'], relatedTradeIds: [], attachments: [] },
-  { id: '3', title: 'TSLA买入逻辑', content: '今日建仓TSLA，主要基于以下几点考虑：公司财报显示营收超预期，技术面形成双底形态，新能源汽车行业长期增长逻辑未变。', timestamp: new Date('2023-06-02T15:45:00'), tags: ['买入逻辑', 'TSLA'], relatedTradeIds: ['5'], attachments: [] },
-];
-
-const tagCloud = [
-  { name: '交易反思', count: 12, color: '#FF8E6E' },
-  { name: '市场分析', count: 8, color: '#5E5CE6' },
-  { name: '买入逻辑', count: 15, color: '#34C759' },
-  { name: '止损', count: 7, color: '#FF3B30' },
-  { name: '策略', count: 10, color: '#5856D6' },
-];
-
 export default function TradingInsights() {
   const [insights, setInsights] = useState<TradingInsight[]>(() => {
     const saved = localStorage.getItem('tradingInsights');
-    return saved ? JSON.parse(saved, (k, v) => k === 'timestamp' ? new Date(v) : v) : mockInsights;
+    return saved ? JSON.parse(saved, (k, v) => k === 'timestamp' ? new Date(v) : v) : [];
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState('');
@@ -56,6 +42,19 @@ export default function TradingInsights() {
     setFormData({ title: '', content: '', tags: '' });
     toast.success('心得已保存');
   };
+
+  const tagCloud = useMemo(() => {
+    const tagCounts: { [key: string]: number } = {};
+    insights.forEach(insight => {
+      insight.tags.forEach(tag => {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+      });
+    });
+    const colors = ['#FF8E6E', '#5E5CE6', '#34C759', '#5856D6', '#FF3B30'];
+    return Object.entries(tagCounts)
+      .map(([name, count], index) => ({ name, count, color: colors[index % colors.length] }))
+      .sort((a, b) => b.count - a.count);
+  }, [insights]);
 
   const handleDeleteInsight = (id: string) => {
     setInsights(insights.filter(i => i.id !== id));

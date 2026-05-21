@@ -13,4 +13,13 @@ function getPlugins() {
 
 export default defineConfig({
   plugins: getPlugins(),
+  server: {
+    proxy: {
+      '/anthropic-api': {
+        target: 'https://api.anthropic.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/anthropic-api/, ''),
+      },
+    },
+  },
 });

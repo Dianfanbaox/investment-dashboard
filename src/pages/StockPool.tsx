@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Stock, TradeRecord } from '@/types';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { toast } from 'sonner';
+import { getQuote, detectMarket } from '@/services/marketService';
 
 const COLORS = ['#FF8E6E', '#5E5CE6', '#34C759', '#5856D6', '#FFB299', '#7B78E8'];
 
@@ -11,26 +12,17 @@ interface Pool {
   stocks: Stock[];
 }
 
-const defaultStocks: Stock[] = [
-  { id: '1', code: 'AAPL', name: '苹果公司', market: 'us', price: 185.5, change: 2.3, changePercent: 1.25, tags: ['科技', '长期'], notes: '', addedAt: new Date(), poolId: '1' },
-  { id: '2', code: 'MSFT', name: '微软公司', market: 'us', price: 378.9, change: -1.2, changePercent: -0.32, tags: ['科技', 'AI'], notes: '', addedAt: new Date(), poolId: '1' },
-  { id: '3', code: 'GOOGL', name: 'Alphabet', market: 'us', price: 140.5, change: 3.8, changePercent: 2.78, tags: ['科技', '搜索'], notes: '', addedAt: new Date(), poolId: '1' },
-  { id: '4', code: 'TSLA', name: '特斯拉公司', market: 'us', price: 248.7, change: -5.1, changePercent: -2.01, tags: ['汽车', '新能源'], notes: '', addedAt: new Date(), poolId: '2' },
-  { id: '5', code: 'NVDA', name: '英伟达公司', market: 'us', price: 495.2, change: 12.5, changePercent: 2.59, tags: ['芯片', 'AI'], notes: '', addedAt: new Date(), poolId: '1' },
-  { id: '6', code: 'META', name: 'Meta公司', market: 'us', price: 325.8, change: 4.2, changePercent: 1.31, tags: ['社交', '广告'], notes: '', addedAt: new Date(), poolId: '2' },
-];
-
 const getStocksFromLocalStorage = (): Stock[] => {
   const savedStocks = localStorage.getItem('stockPoolStocks');
   if (savedStocks) return JSON.parse(savedStocks, (key, value) => key === 'addedAt' ? new Date(value) : value);
-  return defaultStocks;
+  return [];
 };
 
 export default function StockPool() {
   const [stocks, setStocks] = useState<Stock[]>(getStocksFromLocalStorage);
   const [selectedPool, setSelectedPool] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [formData, setFormData] = useState({ code: '', name: '', market: 'us' as const, price: 0, tags: '', notes: '' });
+  const [formData, setFormData] = useState({ code: '', name: '', market: 'us' as const, price: 0, tags: '', notes: '', poolId: '1' });
   const [isEditing, setIsEditing] = useState<Stock | null>(null);
 
   useEffect(() => {
@@ -64,11 +56,11 @@ export default function StockPool() {
       tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       notes: formData.notes,
       addedAt: new Date(),
-      poolId: '1',
+      poolId: formData.poolId,
     };
     setStocks([...stocks, newStock]);
     setShowAddModal(false);
-    setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '' });
+    setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '', poolId: '1' });
     toast.success('股票已添加');
   };
 
@@ -82,16 +74,69 @@ export default function StockPool() {
       price: formData.price || s.price,
       tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : s.tags || [],
       notes: formData.notes,
+      poolId: formData.poolId,
     } : s));
     setIsEditing(null);
     setShowAddModal(false);
-    setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '' });
+    setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '', poolId: '1' });
     toast.success('股票已更新');
   };
 
   const handleDeleteStock = (id: string) => {
     setStocks(stocks.filter(s => s.id !== id));
     toast.success('股票已删除');
+  };
+
+  const [isFetchingQuote, setIsFetchingQuote] = useState(false);
+
+  const handleStockCodeBlur = async (code: string) => {
+    if (!code.trim() || isEditing) return;
+    setIsFetchingQuote(true);
+
+    const market = detectMarket(code);
+    const quote = await getQuote(code, market);
+
+    if (quote) {
+      const detectedMarket = detectMarket(code) || 'us';
+      setFormData(prev => ({
+        ...prev,
+        code: code.toUpperCase(),
+        name: quote.name || prev.name,
+        market: detectedMarket,
+        price: quote.price || prev.price,
+      }));
+      toast.success(`已获取 ${code} 的最新价格`);
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        code: code.toUpperCase(),
+        market: market || prev.market,
+      }));
+    }
+    setIsFetchingQuote(false);
+  };
+
+  const handleRefreshPrices = async () => {
+    if (stocks.length === 0) {
+      toast.error('股票池为空');
+      return;
+    }
+    toast.info('正在刷新价格...');
+    let updated = 0;
+    for (const stock of stocks) {
+      const market = detectMarket(stock.code) || stock.market;
+      const quote = await getQuote(stock.code, market);
+      if (quote) {
+        setStocks(prev => prev.map(s =>
+          s.id === stock.id
+            ? { ...s, price: quote.price, change: quote.change, changePercent: quote.changePercent }
+            : s
+        ));
+        updated++;
+      }
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    toast.success(`已更新 ${updated} 只股票价格`);
   };
 
   const exportStocks = () => {
@@ -138,6 +183,7 @@ export default function StockPool() {
       price: stock.price || 0,
       tags: stock.tags?.join(', ') || '',
       notes: stock.notes || '',
+      poolId: stock.poolId || '1',
     });
     setShowAddModal(true);
   };
@@ -150,10 +196,16 @@ export default function StockPool() {
           <h1 className="text-2xl font-bold text-[#1A1A2E]">股票池</h1>
           <p className="text-sm text-[#9CA3AF] mt-1">管理您的自选股票</p>
         </div>
-        <button onClick={() => { setIsEditing(null); setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '' }); setShowAddModal(true); }} className="btn-primary flex items-center gap-2">
-          <i className="fa-solid fa-plus"></i>
-          <span>添加股票</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={handleRefreshPrices} className="btn-secondary flex items-center gap-2 text-sm">
+            <i className="fa-solid fa-refresh"></i>
+            <span>刷新价格</span>
+          </button>
+          <button onClick={() => { setIsEditing(null); setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '' }); setShowAddModal(true); }} className="btn-primary flex items-center gap-2">
+            <i className="fa-solid fa-plus"></i>
+            <span>添加股票</span>
+          </button>
+        </div>
       </div>
 
       {/* Tab切换 */}
@@ -272,11 +324,23 @@ export default function StockPool() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">股票代码 *</label>
-                  <input type="text" className="input-soft w-full" placeholder="如 AAPL" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      className="input-soft w-full pr-10"
+                      placeholder="输入代码后自动获取信息"
+                      value={formData.code}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                      onBlur={(e) => handleStockCodeBlur(e.target.value)}
+                    />
+                    {isFetchingQuote && (
+                      <i className="fa-solid fa-spinner fa-spin absolute right-3 top-1/2 -translate-y-1/2 text-[#FF8E6E]"></i>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">股票名称 *</label>
-                  <input type="text" className="input-soft w-full" placeholder="如 苹果公司" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                  <input type="text" className="input-soft w-full" placeholder="自动获取或手动输入" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -291,12 +355,21 @@ export default function StockPool() {
                 </div>
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">当前价格</label>
-                  <input type="number" className="input-soft w-full" placeholder="0.00" value={formData.price || ''} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} />
+                  <input type="number" className="input-soft w-full" placeholder="自动获取或手动输入" value={formData.price || ''} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} />
                 </div>
               </div>
-              <div>
-                <label className="text-sm text-[#6B7280] mb-1 block">标签（逗号分隔）</label>
-                <input type="text" className="input-soft w-full" placeholder="如 科技,AI,长期" value={formData.tags} onChange={(e) => setFormData({ ...formData, tags: e.target.value })} />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-[#6B7280] mb-1 block">股票池</label>
+                  <select className="input-soft w-full" value={formData.poolId} onChange={(e) => setFormData({ ...formData, poolId: e.target.value })}>
+                    <option value="1">核心池</option>
+                    <option value="2">关注池</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-[#6B7280] mb-1 block">标签（逗号分隔）</label>
+                  <input type="text" className="input-soft w-full" placeholder="如 科技,AI,长期" value={formData.tags} onChange={(e) => setFormData({ ...formData, tags: e.target.value })} />
+                </div>
               </div>
               <div>
                 <label className="text-sm text-[#6B7280] mb-1 block">备注</label>

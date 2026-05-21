@@ -159,3 +159,45 @@ export interface AIResponse {
     relevance: number;
   }[];
 }
+
+/**
+ * 持仓信息类型定义
+ */
+export interface Position {
+  stockCode: string;
+  stockName: string;
+  shares: number;
+  avgCost: number;
+  currentPrice: number;
+  floatingPnL: number;
+  floatingPnLPct: number;
+  realizedPnL: number;
+  buyCount: number;
+  sellCount: number;
+  market?: 'sh' | 'sz' | 'hk' | 'us';
+}
+
+/**
+ * 行情数据类型定义
+ */
+export interface Quote {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  currency: string;
+  market?: 'sh' | 'sz' | 'hk' | 'us';
+}
+
+/**
+ * 持仓汇总类型定义
+ */
+export interface PositionsSummary {
+  totalValue: number;
+  totalCost: number;
+  totalFloatingPnL: number;
+  totalFloatingPnLPct: number;
+  totalRealizedPnL: number;
+  positions: Position[];
+}

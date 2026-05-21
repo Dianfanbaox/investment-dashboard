@@ -1,6 +1,6 @@
 import { TradeRecord } from '@/types';
 
-const API_URL = 'https://api.anthropic.com/v1/messages';
+const API_URL = '/anthropic-api/v1/messages';
 const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 
 interface Message {

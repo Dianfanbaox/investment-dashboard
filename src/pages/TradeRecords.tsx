@@ -3,15 +3,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { format } from 'date-fns';
 import { TradeRecord, Stock, StockPool } from '@/types';
 import { toast } from 'sonner';
-
-const mockTrades: TradeRecord[] = [
-  { id: '1', stockCode: 'AAPL', stockName: '苹果公司', type: 'buy', price: 185.5, quantity: 10, timestamp: new Date('2023-06-01T09:30:00'), fee: 12.5, notes: '长期持有', tags: ['科技', '长期'] },
-  { id: '2', stockCode: 'MSFT', stockName: '微软公司', type: 'buy', price: 342.8, quantity: 5, timestamp: new Date('2023-06-02T10:15:00'), fee: 9.8, notes: 'AI业务增长', tags: ['科技', 'AI'] },
-  { id: '3', stockCode: 'GOOGL', stockName: 'Alphabet公司', type: 'buy', price: 128.3, quantity: 8, timestamp: new Date('2023-06-05T14:20:00'), fee: 10.2, notes: '搜索业务稳定', tags: ['科技', '搜索'] },
-  { id: '4', stockCode: 'AMZN', stockName: '亚马逊公司', type: 'sell', price: 132.5, quantity: 15, timestamp: new Date('2023-06-10T11:45:00'), fee: 15.7, notes: '达到目标价', tags: ['电商', '止盈'] },
-  { id: '5', stockCode: 'TSLA', stockName: '特斯拉公司', type: 'buy', price: 248.7, quantity: 6, timestamp: new Date('2023-06-12T09:10:00'), fee: 8.5, notes: '新能源趋势', tags: ['汽车', '新能源'] },
-  { id: '6', stockCode: 'AAPL', stockName: '苹果公司', type: 'sell', price: 198.2, quantity: 10, timestamp: new Date('2023-06-15T15:30:00'), fee: 14.2, notes: '短期获利了结', tags: ['科技', '止盈'] },
-];
+import { checkTradeViolations, saveViolationRecord } from '@/hooks/useDisciplineCheck';
+import { tradesToCSV, downloadCSV, parseCSV, generateCSVTemplate } from '@/lib/csvUtils';
+import { getQuote, detectMarket } from '@/services/marketService';
 
 export const calculateHoldings = (trades: TradeRecord[]) => {
   const holdings: { [stockCode: string]: { stockCode: string, stockName: string, quantity: number, avgPrice: number, totalCost: number } } = {};
@@ -40,13 +34,38 @@ export const calculateHoldings = (trades: TradeRecord[]) => {
 export default function TradeRecords() {
   const [trades, setTrades] = useState<TradeRecord[]>(() => {
     const savedTrades = localStorage.getItem('trades');
-    return savedTrades ? JSON.parse(savedTrades, (key, value) => key === 'timestamp' ? new Date(value) : value) : mockTrades;
+    return savedTrades ? JSON.parse(savedTrades, (key, value) => key === 'timestamp' ? new Date(value) : value) : [];
   });
   const [chartView, setChartView] = useState<'trades' | 'profit'>('trades');
   const [timeRange, setTimeRange] = useState<'6months' | '12months' | 'year'>('6months');
   const [filter, setFilter] = useState({ dateRange: 'month', stockCode: '', tradeType: 'all' });
   const [isAddTradeOpen, setIsAddTradeOpen] = useState(false);
   const [formData, setFormData] = useState({ type: 'buy', price: 0, quantity: 0, fee: 0, timestamp: new Date(), tags: '', notes: '', stockCode: '', stockName: '' });
+  const [isFetchingQuote, setIsFetchingQuote] = useState(false);
+
+  const handleStockCodeBlur = async (code: string) => {
+    if (!code.trim()) return;
+    setIsFetchingQuote(true);
+
+    const market = detectMarket(code);
+    const quote = await getQuote(code, market);
+
+    if (quote) {
+      setFormData(prev => ({
+        ...prev,
+        stockCode: code.toUpperCase(),
+        stockName: quote.name || prev.stockName,
+        price: quote.price || prev.price,
+      }));
+      toast.success(`已获取 ${code} 的最新价格 ¥${quote.price}`);
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        stockCode: code.toUpperCase(),
+      }));
+    }
+    setIsFetchingQuote(false);
+  };
 
   const calculateProfit = (trade: TradeRecord, allTrades: TradeRecord[]) => {
     if (trade.type === 'buy') return 0;
@@ -88,8 +107,63 @@ export default function TradeRecords() {
   const handleAddTrade = (newTrade: any) => {
     const tradeWithId = { ...newTrade, id: Date.now().toString() };
     setTrades([...trades, tradeWithId]);
+
+    // 检查纪律违规
+    const violations = checkTradeViolations(tradeWithId);
+    if (violations.length > 0) {
+      violations.forEach(v => saveViolationRecord(v));
+      toast.warning(`检测到 ${violations.length} 条违规记录`);
+    } else {
+      toast.success('交易记录已添加');
+    }
     setIsAddTradeOpen(false);
-    toast.success('交易记录已添加');
+  };
+
+  const handleExportCSV = () => {
+    if (trades.length === 0) {
+      toast.error('暂无交易记录可导出');
+      return;
+    }
+    const csv = tradesToCSV(trades);
+    downloadCSV(csv, `交易记录_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    toast.success('导出成功');
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      const imported = parseCSV(content) as TradeRecord[];
+
+      if (imported.length === 0) {
+        toast.error('导入失败，请检查文件格式');
+        return;
+      }
+
+      const existingIds = new Set(trades.map(t => `${t.stockCode}_${t.timestamp}_${t.price}_${t.quantity}`));
+      const newTrades = imported.filter(t => {
+        const key = `${t.stockCode}_${t.timestamp}_${t.price}_${t.quantity}`;
+        return !existingIds.has(key);
+      });
+
+      if (newTrades.length === 0) {
+        toast.info('没有新的交易记录需要导入');
+        return;
+      }
+
+      setTrades([...trades, ...newTrades]);
+      toast.success(`成功导入 ${newTrades.length} 条交易记录`);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleDownloadTemplate = () => {
+    const template = generateCSVTemplate();
+    downloadCSV(template, '交易记录导入模板.csv');
   };
 
   return (
@@ -100,10 +174,25 @@ export default function TradeRecords() {
           <h1 className="text-2xl font-bold text-[#1A1A2E]">交易记录</h1>
           <p className="text-sm text-[#9CA3AF] mt-1">管理和分析您的交易数据</p>
         </div>
-        <button onClick={() => setIsAddTradeOpen(true)} className="btn-primary flex items-center gap-2">
-          <i className="fa-solid fa-plus"></i>
-          <span>添加交易</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={handleExportCSV} className="btn-secondary flex items-center gap-2 text-sm">
+            <i className="fa-solid fa-download"></i>
+            <span>导出</span>
+          </button>
+          <label className="btn-secondary flex items-center gap-2 text-sm cursor-pointer">
+            <i className="fa-solid fa-upload"></i>
+            <span>导入</span>
+            <input type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
+          </label>
+          <button onClick={handleDownloadTemplate} className="btn-secondary flex items-center gap-2 text-sm">
+            <i className="fa-solid fa-file-alt"></i>
+            <span>模板</span>
+          </button>
+          <button onClick={() => setIsAddTradeOpen(true)} className="btn-primary flex items-center gap-2">
+            <i className="fa-solid fa-plus"></i>
+            <span>添加交易</span>
+          </button>
+        </div>
       </div>
 
       {/* 统计卡片 */}
@@ -312,7 +401,19 @@ export default function TradeRecords() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">股票代码</label>
-                  <input type="text" className="input-soft w-full" placeholder="如 AAPL" value={formData.stockCode} onChange={(e) => setFormData({ ...formData, stockCode: e.target.value })} />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      className="input-soft w-full pr-10"
+                      placeholder="输入代码后自动获取价格"
+                      value={formData.stockCode}
+                      onChange={(e) => setFormData({ ...formData, stockCode: e.target.value })}
+                      onBlur={(e) => handleStockCodeBlur(e.target.value)}
+                    />
+                    {isFetchingQuote && (
+                      <i className="fa-solid fa-spinner fa-spin absolute right-3 top-1/2 -translate-y-1/2 text-[#FF8E6E]"></i>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">股票名称</label>
