@@ -1,22 +1,21 @@
 import { Quote } from '../types';
 
 function symbolToTencent(code: string, market?: 'sh' | 'sz' | 'hk' | 'us'): string {
-  if (market === 'sh') return `sh${code}`;
-  if (market === 'sz') return `sz${code}`;
-  if (market === 'hk') return `hk${code}`;
-  if (market === 'us') return `us${code}`;
+  const c = code.toUpperCase();
+  if (market === 'sh') return `sh${c}`;
+  if (market === 'sz') return `sz${c}`;
+  if (market === 'hk') return `hk${c}`;
+  if (market === 'us') return `us${c}`;
 
   // Auto-detect by code pattern
-  if (/^\d{6}$/.test(code)) {
-    if (code.startsWith('6')) return `sh${code}`;
-    if (code.startsWith('0') || code.startsWith('3')) return `sz${code}`;
+  if (/^\d{6}$/.test(c)) {
+    if (c.startsWith('6')) return `sh${c}`;
+    if (c.startsWith('0') || c.startsWith('3')) return `sz${c}`;
   }
-  // US stocks usually have 1-5 letters
-  if (/^[A-Z]{1,5}$/i.test(code)) return `us${code.toUpperCase()}`;
-  // HK stocks
-  if (/^\d{4,5}$/.test(code)) return `hk${code}`;
+  if (/^[A-Z]{1,5}$/.test(c)) return `us${c}`;
+  if (/^\d{4,5}$/.test(c)) return `hk${c}`;
 
-  return `us${code.toUpperCase()}`;
+  return `us${c}`;
 }
 
 // Convert GBK buffer to UTF-8 string
@@ -133,12 +132,13 @@ export async function getQuotes(codes: string[], market?: 'sh' | 'sz' | 'hk' | '
 }
 
 export function detectMarket(code: string): 'sh' | 'sz' | 'hk' | 'us' | undefined {
-  if (/^\d{6}$/.test(code)) {
-    if (code.startsWith('6')) return 'sh';
-    if (code.startsWith('0') || code.startsWith('3')) return 'sz';
+  const upper = code.toUpperCase().trim();
+  if (/^\d{6}$/.test(upper)) {
+    if (upper.startsWith('6')) return 'sh';
+    if (upper.startsWith('0') || upper.startsWith('3')) return 'sz';
   }
-  if (/^(00|30|60)\d{5}$/.test(code)) return 'sz';
-  if (/^(68|60)\d{5}$/.test(code)) return 'sh';
-  if (/^\d{4,5}$/.test(code) && parseInt(code) < 10000) return 'hk';
+  if (/^(00|30|60)\d{5}$/.test(upper)) return 'sz';
+  if (/^(68|60)\d{5}$/.test(upper)) return 'sh';
+  if (/^\d{4,5}$/.test(upper) && parseInt(upper) < 10000) return 'hk';
   return 'us';
 }

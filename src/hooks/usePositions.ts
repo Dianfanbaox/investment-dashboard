@@ -63,8 +63,7 @@ export function usePositions(): PositionsSummary {
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
 
-      let shares = 0;
-      let costSum = 0;
+      const lots: { price: number; quantity: number }[] = [];
       let realizedPnL = 0;
       let buyCount = 0;
       let sellCount = 0;
@@ -74,24 +73,23 @@ export function usePositions(): PositionsSummary {
         stockName = trade.stockName || stockCode;
         if (trade.type === 'buy') {
           buyCount++;
-          shares += trade.quantity;
-          costSum += trade.price * trade.quantity;
+          lots.push({ price: trade.price, quantity: trade.quantity });
         } else {
           sellCount++;
-          if (shares > 0) {
-            const avgCost = costSum / shares;
-            const pnl = (trade.price - avgCost) * trade.quantity;
-            realizedPnL += pnl;
-            shares -= trade.quantity;
-            if (shares > 0) {
-              costSum = avgCost * shares;
-            } else {
-              costSum = 0;
-            }
+          let remaining = trade.quantity;
+          while (remaining > 0 && lots.length > 0) {
+            const lot = lots[0];
+            const sellQty = Math.min(lot.quantity, remaining);
+            realizedPnL += (trade.price - lot.price) * sellQty;
+            lot.quantity -= sellQty;
+            remaining -= sellQty;
+            if (lot.quantity === 0) lots.shift();
           }
         }
       });
 
+      const shares = lots.reduce((s, l) => s + l.quantity, 0);
+      const costSum = lots.reduce((s, l) => s + l.price * l.quantity, 0);
       const avgCost = shares > 0 ? costSum / shares : 0;
       const poolPrice = stockPoolPrices.get(stockCode);
       const currentPrice = poolPrice ?? avgCost;

@@ -15,10 +15,10 @@ export default defineConfig({
   plugins: getPlugins(),
   server: {
     proxy: {
-      '/anthropic-api': {
-        target: 'https://api.anthropic.com',
+      '/siliconflow-api': {
+        target: 'https://api.siliconflow.cn',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/anthropic-api/, ''),
+        rewrite: (path) => path.replace(/^\/siliconflow-api/, ''),
       },
     },
   },

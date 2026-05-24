@@ -8,27 +8,36 @@ import { tradesToCSV, downloadCSV, parseCSV, generateCSVTemplate } from '@/lib/c
 import { getQuote, detectMarket } from '@/services/marketService';
 
 export const calculateHoldings = (trades: TradeRecord[]) => {
-  const holdings: { [stockCode: string]: { stockCode: string, stockName: string, quantity: number, avgPrice: number, totalCost: number } } = {};
-  trades.forEach(trade => {
+  const holdings: { [stockCode: string]: { stockCode: string, stockName: string, lots: { price: number; quantity: number }[] } } = {};
+  const sorted = [...trades].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  sorted.forEach(trade => {
     if (!holdings[trade.stockCode]) {
-      holdings[trade.stockCode] = { stockCode: trade.stockCode, stockName: trade.stockName, quantity: 0, avgPrice: 0, totalCost: 0 };
+      holdings[trade.stockCode] = { stockCode: trade.stockCode, stockName: trade.stockName, lots: [] };
     }
-    const stockHolding = holdings[trade.stockCode];
+    const h = holdings[trade.stockCode];
     if (trade.type === 'buy') {
-      const newTotalQuantity = stockHolding.quantity + trade.quantity;
-      const newTotalCost = stockHolding.totalCost + (trade.price * trade.quantity);
-      stockHolding.quantity = newTotalQuantity;
-      stockHolding.totalCost = newTotalCost;
-      stockHolding.avgPrice = newTotalQuantity > 0 ? newTotalCost / newTotalQuantity : 0;
+      h.lots.push({ price: trade.price, quantity: trade.quantity });
     } else if (trade.type === 'sell') {
-      stockHolding.quantity = Math.max(0, stockHolding.quantity - Math.min(stockHolding.quantity, trade.quantity));
-      if (stockHolding.quantity === 0) {
-        stockHolding.avgPrice = 0;
-        stockHolding.totalCost = 0;
+      let remaining = Math.min(h.lots.reduce((s, l) => s + l.quantity, 0), trade.quantity);
+      while (remaining > 0 && h.lots.length > 0) {
+        const lot = h.lots[0];
+        if (lot.quantity <= remaining) {
+          remaining -= lot.quantity;
+          h.lots.shift();
+        } else {
+          lot.quantity -= remaining;
+          remaining = 0;
+        }
       }
     }
   });
-  return Object.values(holdings).filter(holding => holding.quantity > 0);
+  return Object.values(holdings)
+    .map(h => {
+      const quantity = h.lots.reduce((s, l) => s + l.quantity, 0);
+      const totalCost = h.lots.reduce((s, l) => s + l.price * l.quantity, 0);
+      return { stockCode: h.stockCode, stockName: h.stockName, quantity, avgPrice: quantity > 0 ? totalCost / quantity : 0, totalCost };
+    })
+    .filter(h => h.quantity > 0);
 };
 
 export default function TradeRecords() {
@@ -79,15 +88,18 @@ export default function TradeRecords() {
   const calculateMonthlyStats = () => {
     const monthlyData: { [key: string]: { buy: number, sell: number, profit: number } } = {};
     trades.forEach(trade => {
-      const month = new Date(trade.timestamp).toLocaleString('zh-CN', { month: 'numeric' });
+      const date = new Date(trade.timestamp);
+      const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       if (!monthlyData[month]) monthlyData[month] = { buy: 0, sell: 0, profit: 0 };
       monthlyData[month][trade.type === 'buy' ? 'buy' : 'sell']++;
       monthlyData[month].profit += calculateProfit(trade, trades);
     });
-    return Object.entries(monthlyData).map(([month, data]) => ({
-      name: new Date(2023, parseInt(month, 10) - 1, 1).toLocaleString('zh-CN', { month: 'short' }),
-      买入: data.buy, 卖出: data.sell, 盈亏: data.profit
-    }));
+    return Object.entries(monthlyData)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, data]) => ({
+        name: `${month.split('-')[0]}年${parseInt(month.split('-')[1], 10)}月`,
+        买入: data.buy, 卖出: data.sell, 盈亏: data.profit
+      }));
   };
 
   const holdings = useMemo(() => calculateHoldings(trades), [trades]);
@@ -264,7 +276,15 @@ export default function TradeRecords() {
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={calculateMonthlyStats()} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={calculateMonthlyStats().filter(item => {
+                const [year, month] = item.name.replace('年', '-').replace('月', '').split('-');
+                const date = new Date(parseInt(year), parseInt(month) - 1);
+                const now = new Date();
+                if (timeRange === 'year') return date.getFullYear() === now.getFullYear();
+                const monthsBack = timeRange === '6months' ? 6 : 12;
+                const cutoff = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1);
+                return date >= cutoff;
+              })} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#FF8E6E" stopOpacity={0.2} />
@@ -304,7 +324,7 @@ export default function TradeRecords() {
                     <span className="font-medium text-[#1A1A2E]">{holding.quantity}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#9CA3AF]">平均成本</span>
+                    <span className="text-[#9CA3AF]">成本</span>
                     <span className="font-medium text-[#1A1A2E]">¥{holding.avgPrice.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">

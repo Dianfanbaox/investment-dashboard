@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import { sendMessageToClaude } from '@/services/aiService';
 import { usePositions } from '@/hooks/usePositions';
 import { TradeRecord } from '@/types';
@@ -21,56 +21,105 @@ export default function AIAnalysis() {
   const [isLoading, setIsLoading] = useState(false);
   const [isApiConfigured, setIsApiConfigured] = useState(!!localStorage.getItem('ai_api_key'));
   const [apiKeyInput, setApiKeyInput] = useState('');
-  const { positions, totalValue, totalCost, totalFloatingPnL, totalRealizedPnL } = usePositions();
+  const [apiUrlInput, setApiUrlInput] = useState(localStorage.getItem('ai_api_url') || '/siliconflow-api/v1/chat/completions');
+  const [modelInput, setModelInput] = useState(localStorage.getItem('ai_model') || 'Qwen/Qwen2.5-7B-Instruct');
+  const { positions } = usePositions();
 
-  // 生成性能数据
-  const performanceData = generatePerformanceData();
-
-  // 生成交易习惯数据
-  const tradingHabits = generateTradingHabits();
-
-  function generatePerformanceData() {
-    const months = ['1月', '2月', '3月', '4月', '5月', '6月'];
-    const trades = loadTrades();
+  // 业绩分析：按月计算已实现盈亏（FIFO）
+  const performanceData = (() => {
+    const trades = loadTrades().sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     const monthlyPnL: { [key: string]: number } = {};
 
-    trades.forEach((t: TradeRecord) => {
-      if (t.type === 'sell') {
+    // FIFO 计算每笔卖出的盈亏
+    const lots: { [code: string]: { price: number; quantity: number }[] } = {};
+    trades.forEach(t => {
+      if (!lots[t.stockCode]) lots[t.stockCode] = [];
+      if (t.type === 'buy') {
+        lots[t.stockCode].push({ price: t.price, quantity: t.quantity });
+      } else {
         const month = new Date(t.timestamp).toLocaleString('zh-CN', { month: 'numeric' }) + '月';
-        monthlyPnL[month] = (monthlyPnL[month] || 0) + (t.price * t.quantity * 0.01);
+        let remaining = t.quantity;
+        let pnl = 0;
+        while (remaining > 0 && lots[t.stockCode].length > 0) {
+          const lot = lots[t.stockCode][0];
+          const qty = Math.min(lot.quantity, remaining);
+          pnl += (t.price - lot.price) * qty;
+          lot.quantity -= qty;
+          remaining -= qty;
+          if (lot.quantity === 0) lots[t.stockCode].shift();
+        }
+        monthlyPnL[month] = (monthlyPnL[month] || 0) + pnl;
       }
     });
 
-    return months.map(name => ({
+    // 取最近有数据的 6 个月
+    const monthOrder = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+    const dataMonths = monthOrder.filter(m => monthlyPnL[m] !== undefined);
+    const showMonths = dataMonths.length > 0 ? dataMonths.slice(-6) : monthOrder.slice(0, 6);
+
+    return showMonths.map(name => ({
       name,
-      收益: monthlyPnL[name] || Math.random() * 10 - 2,
-      市场: Math.random() * 8 - 1,
+      盈亏: Math.round((monthlyPnL[name] || 0) * 100) / 100,
     }));
-  }
+  })();
 
-  function generateTradingHabits() {
-    const trades = loadTrades();
-    const buyTrades = trades.filter((t: TradeRecord) => t.type === 'buy');
-    const sellTrades = trades.filter((t: TradeRecord) => t.type === 'sell');
+  // 交易习惯评估
+  const tradingHabits = (() => {
+    const trades = loadTrades().sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const sellTrades = trades.filter(t => t.type === 'sell');
 
-    const diversification = positions.length > 3 ? 75 : positions.length > 1 ? 55 : 30;
-    const avgHoldingDays = 30;
-    const longTermHolding = avgHoldingDays > 60 ? 80 : avgHoldingDays > 30 ? 60 : 40;
-    const stopLossExec = sellTrades.filter((t: TradeRecord) => {
-      const buys = trades.filter((b: TradeRecord) => b.stockCode === t.stockCode && b.type === 'buy');
-      const avgCost = buys.reduce((sum: number, b: TradeRecord) => sum + b.price * b.quantity, 0) / buys.reduce((sum: number, b: TradeRecord) => sum + b.quantity, 0);
+    // 1. 分散投资：持仓股票数量
+    const stockCount = positions.length;
+    const diversification = stockCount >= 5 ? 90 : stockCount >= 3 ? 70 : stockCount >= 2 ? 50 : 30;
+
+    // 2. 持有期：买入到卖出的平均天数
+    const holdingDaysList: number[] = [];
+    const lotsByStock: { [code: string]: { date: Date; quantity: number }[] } = {};
+    trades.forEach(t => {
+      if (!lotsByStock[t.stockCode]) lotsByStock[t.stockCode] = [];
+      if (t.type === 'buy') {
+        lotsByStock[t.stockCode].push({ date: new Date(t.timestamp), quantity: t.quantity });
+      } else {
+        let remaining = t.quantity;
+        while (remaining > 0 && lotsByStock[t.stockCode].length > 0) {
+          const lot = lotsByStock[t.stockCode][0];
+          const qty = Math.min(lot.quantity, remaining);
+          const days = (new Date(t.timestamp).getTime() - lot.date.getTime()) / (1000 * 60 * 60 * 24);
+          holdingDaysList.push(days);
+          lot.quantity -= qty;
+          remaining -= qty;
+          if (lot.quantity === 0) lotsByStock[t.stockCode].shift();
+        }
+      }
+    });
+    const avgHoldingDays = holdingDaysList.length > 0 ? holdingDaysList.reduce((s, d) => s + d, 0) / holdingDaysList.length : 0;
+    const longTermScore = avgHoldingDays >= 90 ? 90 : avgHoldingDays >= 30 ? 70 : avgHoldingDays >= 7 ? 50 : 30;
+
+    // 3. 止损执行：亏损卖出占比
+    const lossSells = sellTrades.filter(t => {
+      const stockLots = trades.filter(b => b.stockCode === t.stockCode && b.type === 'buy' && new Date(b.timestamp) < new Date(t.timestamp));
+      if (stockLots.length === 0) return false;
+      const avgCost = stockLots.reduce((s, b) => s + b.price * b.quantity, 0) / stockLots.reduce((s, b) => s + b.quantity, 0);
       return t.price < avgCost;
     }).length;
-    const stopLossScore = sellTrades.length > 0 ? Math.round((1 - stopLossExec / sellTrades.length) * 100) : 50;
-    const positionControl = totalValue > 0 ? Math.round((1 - (positions[0]?.currentPrice * positions[0]?.shares || 0) / totalValue) * 100) : 50;
+    const stopLossScore = sellTrades.length > 0 ? Math.round((1 - lossSells / sellTrades.length) * 100) : 50;
+
+    // 4. 胜率：盈利卖出占比
+    const winSells = sellTrades.filter(t => {
+      const stockLots = trades.filter(b => b.stockCode === t.stockCode && b.type === 'buy' && new Date(b.timestamp) < new Date(t.timestamp));
+      if (stockLots.length === 0) return false;
+      const avgCost = stockLots.reduce((s, b) => s + b.price * b.quantity, 0) / stockLots.reduce((s, b) => s + b.quantity, 0);
+      return t.price >= avgCost;
+    }).length;
+    const winRate = sellTrades.length > 0 ? Math.round((winSells / sellTrades.length) * 100) : 50;
 
     return [
       { name: '分散投资', score: diversification, status: diversification >= 60 ? 'positive' : diversification >= 40 ? 'neutral' : 'negative' },
-      { name: '长期持有', score: longTermHolding, status: longTermHolding >= 60 ? 'positive' : longTermHolding >= 40 ? 'neutral' : 'negative' },
-      { name: '止损执行', score: stopLossScore, status: stopLossScore >= 60 ? 'positive' : stopLossScore >= 40 ? 'neutral' : 'negative' },
-      { name: '仓位控制', score: positionControl, status: positionControl >= 60 ? 'positive' : positionControl >= 40 ? 'neutral' : 'negative' },
+      { name: '持有周期', score: longTermScore, status: longTermScore >= 60 ? 'positive' : longTermScore >= 40 ? 'neutral' : 'negative', detail: `平均 ${Math.round(avgHoldingDays)} 天` },
+      { name: '止损纪律', score: stopLossScore, status: stopLossScore >= 60 ? 'positive' : stopLossScore >= 40 ? 'neutral' : 'negative' },
+      { name: '胜率', score: winRate, status: winRate >= 60 ? 'positive' : winRate >= 40 ? 'neutral' : 'negative', detail: `${winSells}/${sellTrades.length}` },
     ];
-  }
+  })();
 
   function loadTrades(): TradeRecord[] {
     try {
@@ -130,8 +179,10 @@ export default function AIAnalysis() {
   const saveApiKey = () => {
     if (apiKeyInput.trim()) {
       localStorage.setItem('ai_api_key', apiKeyInput.trim());
+      if (apiUrlInput.trim()) localStorage.setItem('ai_api_url', apiUrlInput.trim());
+      if (modelInput.trim()) localStorage.setItem('ai_model', modelInput.trim());
       setIsApiConfigured(true);
-      toast.success('API Key 已保存');
+      toast.success('API 配置已保存');
     }
   };
 
@@ -152,17 +203,40 @@ export default function AIAnalysis() {
       {/* API Key 设置弹窗 */}
       {!isApiConfigured && (
         <div className="soft-card p-6">
-          <h2 className="text-lg font-bold text-[#1A1A2E] mb-4">配置 API Key</h2>
-          <p className="text-sm text-[#6B7280] mb-4">请输入您的 AI 服务 API Key 以启用 AI 分析功能。</p>
-          <div className="flex gap-3">
-            <input
-              type="password"
-              placeholder="输入 API Key..."
-              className="input-soft flex-1"
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-            />
-            <button onClick={saveApiKey} className="btn-primary">保存</button>
+          <h2 className="text-lg font-bold text-[#1A1A2E] mb-4">配置 AI 服务</h2>
+          <p className="text-sm text-[#6B7280] mb-4">支持硅基流动等 OpenAI 兼容的 API 服务。</p>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm text-[#6B7280] mb-1 block">API 地址</label>
+              <input
+                type="text"
+                placeholder="https://api.siliconflow.cn/v1/chat/completions"
+                className="input-soft w-full"
+                value={apiUrlInput}
+                onChange={(e) => setApiUrlInput(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm text-[#6B7280] mb-1 block">模型名称</label>
+              <input
+                type="text"
+                placeholder="Qwen/Qwen2.5-7B-Instruct"
+                className="input-soft w-full"
+                value={modelInput}
+                onChange={(e) => setModelInput(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm text-[#6B7280] mb-1 block">API Key</label>
+              <input
+                type="password"
+                placeholder="输入 API Key..."
+                className="input-soft w-full"
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+              />
+            </div>
+            <button onClick={saveApiKey} className="w-full btn-primary">保存配置</button>
           </div>
         </div>
       )}
@@ -246,29 +320,51 @@ export default function AIAnalysis() {
       {/* 业绩分析 */}
       {activeTab === 'performance' && (
         <div className="soft-card p-6">
-          <h2 className="text-lg font-bold text-[#1A1A2E] mb-4">投资收益对比</h2>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={performanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="0" stroke="rgba(0,0,0,0.04)" vertical={false} />
-                <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} axisLine={false} tickLine={false} />
-                <YAxis stroke="#9CA3AF" fontSize={12} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: 'white', border: 'none', borderRadius: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
-                <Bar dataKey="收益" fill="#FF8E6E" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="市场" fill="#5E5CE6" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex justify-center gap-6 mt-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#FF8E6E]"></div>
-              <span className="text-xs text-[#6B7280]">您的收益</span>
+          <h2 className="text-lg font-bold text-[#1A1A2E] mb-4">月度已实现盈亏</h2>
+          <p className="text-sm text-[#9CA3AF] mb-4">基于 FIFO 算法，计算每月卖出交易的实际盈亏</p>
+          {performanceData.some(d => d.盈亏 !== 0) ? (
+            <>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={performanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="0" stroke="rgba(0,0,0,0.04)" vertical={false} />
+                    <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} axisLine={false} tickLine={false} />
+                    <YAxis stroke="#9CA3AF" fontSize={12} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'white', border: 'none', borderRadius: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+                      formatter={(value: number) => [`¥${value.toFixed(2)}`, '盈亏']}
+                    />
+                    <Bar dataKey="盈亏" radius={[8, 8, 0, 0]}>
+                      {performanceData.map((entry, index) => (
+                        <Cell key={index} fill={entry.盈亏 >= 0 ? '#34C759' : '#FF3B30'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mt-6">
+                <div className="p-4 bg-[#F8F9FC] rounded-2xl text-center">
+                  <p className="text-lg font-bold text-[#34C759]">¥{performanceData.filter(d => d.盈亏 > 0).reduce((s, d) => s + d.盈亏, 0).toFixed(0)}</p>
+                  <p className="text-xs text-[#9CA3AF]">总盈利</p>
+                </div>
+                <div className="p-4 bg-[#F8F9FC] rounded-2xl text-center">
+                  <p className="text-lg font-bold text-[#FF3B30]">¥{Math.abs(performanceData.filter(d => d.盈亏 < 0).reduce((s, d) => s + d.盈亏, 0)).toFixed(0)}</p>
+                  <p className="text-xs text-[#9CA3AF]">总亏损</p>
+                </div>
+                <div className="p-4 bg-[#F8F9FC] rounded-2xl text-center">
+                  <p className={`text-lg font-bold ${performanceData.reduce((s, d) => s + d.盈亏, 0) >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>¥{performanceData.reduce((s, d) => s + d.盈亏, 0).toFixed(0)}</p>
+                  <p className="text-xs text-[#9CA3AF]">净盈亏</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 rounded-full bg-[#F8F9FC] flex items-center justify-center mx-auto mb-4">
+                <i className="fa-solid fa-chart-bar text-2xl text-[#9CA3AF]"></i>
+              </div>
+              <p className="text-sm text-[#9CA3AF]">暂无已实现盈亏数据</p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#5E5CE6]"></div>
-              <span className="text-xs text-[#6B7280]">市场基准</span>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -279,19 +375,23 @@ export default function AIAnalysis() {
           <div className="space-y-5">
             {tradingHabits.map((habit, i) => (
               <div key={i} className="flex items-center gap-4">
-                <div className="w-24 text-sm text-[#6B7280]">{habit.name}</div>
+                <div className="w-20 text-sm text-[#6B7280]">{habit.name}</div>
                 <div className="flex-1 h-3 bg-[#F8F9FC] rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-all ${habit.status === 'positive' ? 'bg-gradient-to-r from-[#34C759] to-[#30D158]' : habit.status === 'negative' ? 'bg-gradient-to-r from-[#FF8E6E] to-[#FFB299]' : 'bg-gradient-to-r from-[#5E5CE6] to-[#7B78E8]'}`} style={{ width: `${habit.score}%` }}></div>
                 </div>
-                <div className={`w-16 text-right text-sm font-medium ${habit.status === 'positive' ? 'text-[#34C759]' : habit.status === 'negative' ? 'text-[#FF8E6E]' : 'text-[#5E5CE6]'}`}>
-                  {habit.score}%
+                <div className={`w-20 text-right text-sm font-medium ${habit.status === 'positive' ? 'text-[#34C759]' : habit.status === 'negative' ? 'text-[#FF8E6E]' : 'text-[#5E5CE6]'}`}>
+                  {habit.score}%{habit.detail && <span className="text-xs text-[#9CA3AF] ml-1">{habit.detail}</span>}
                 </div>
               </div>
             ))}
           </div>
           <div className="mt-6 p-4 bg-[#F8F9FC] rounded-2xl">
-            <h3 className="text-sm font-semibold text-[#1A1A2E] mb-2">AI建议</h3>
-            <p className="text-sm text-[#6B7280]">您的交易习惯整体表现良好。建议加强止损执行纪律，这将对您的长期投资回报产生积极影响。</p>
+            <h3 className="text-sm font-semibold text-[#1A1A2E] mb-2">分析结论</h3>
+            <ul className="text-sm text-[#6B7280] space-y-1">
+              {tradingHabits.map((h, i) => (
+                <li key={i}>• {h.name}：{h.score >= 60 ? '良好' : h.score >= 40 ? '一般' : '需改进'}{h.detail ? `（${h.detail}）` : ''}</li>
+              ))}
+            </ul>
           </div>
         </div>
       )}

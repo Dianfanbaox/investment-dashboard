@@ -1,7 +1,7 @@
 import { TradeRecord } from '@/types';
 
-const API_URL = '/anthropic-api/v1/messages';
-const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+const DEFAULT_API_URL = '/siliconflow-api/v1/chat/completions';
+const DEFAULT_MODEL = 'Qwen/Qwen2.5-7B-Instruct';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -13,7 +13,6 @@ interface AIResponse {
   error?: string;
 }
 
-// 获取用户交易数据摘要
 const getTradesSummary = (trades: TradeRecord[]): string => {
   if (trades.length === 0) {
     return '目前没有任何交易记录。';
@@ -22,7 +21,6 @@ const getTradesSummary = (trades: TradeRecord[]): string => {
   const buyTrades = trades.filter(t => t.type === 'buy');
   const sellTrades = trades.filter(t => t.type === 'sell');
 
-  // 按股票分组
   const stocks: { [code: string]: { name: string, trades: TradeRecord[] } } = {};
   trades.forEach(t => {
     if (!stocks[t.stockCode]) {
@@ -31,7 +29,6 @@ const getTradesSummary = (trades: TradeRecord[]): string => {
     stocks[t.stockCode].trades.push(t);
   });
 
-  // 计算总收益
   let totalProfit = 0;
   const stockSummaries: string[] = [];
 
@@ -65,7 +62,7 @@ const getTradesSummary = (trades: TradeRecord[]): string => {
     }
   });
 
-  const summary = `
+  return `
 交易统计：
 - 总交易次数: ${trades.length}次
 - 买入: ${buyTrades.length}次
@@ -76,17 +73,17 @@ ${stockSummaries.join('\n')}
 
 当前总收益: ${totalProfit >= 0 ? '+' : ''}¥${totalProfit.toFixed(2)}
 `;
-
-  return summary;
 };
 
-// 发送消息到 Claude API
 export const sendMessageToClaude = async (
   apiKey: string,
   message: string,
   chatHistory: Message[]
 ): Promise<AIResponse> => {
   try {
+    const apiUrl = localStorage.getItem('ai_api_url') || DEFAULT_API_URL;
+    const model = localStorage.getItem('ai_model') || DEFAULT_MODEL;
+
     const trades = localStorage.getItem('trades');
     const tradesData: TradeRecord[] = trades ? JSON.parse(trades, (k: string, v: unknown) => {
       if (k === 'timestamp') return new Date(v as string);
@@ -103,22 +100,22 @@ ${getTradesSummary(tradesData)}
 
 请根据用户的交易数据提供专业、有价值的分析和建议。保持回答简洁、专业、易懂。`;
 
-    const response = await fetch(API_URL, {
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...chatHistory.map(m => ({ role: m.role, content: m.content })),
+      { role: 'user', content: message }
+    ];
+
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
+        model,
         max_tokens: 1024,
-        system: systemPrompt,
-        messages: chatHistory.map(m => ({
-          role: m.role,
-          content: m.content
-        })).concat([{ role: 'user' as const, content: message }])
+        messages,
       })
     });
 
@@ -129,8 +126,8 @@ ${getTradesSummary(tradesData)}
 
     const data = await response.json();
 
-    if (data.content && data.content.length > 0) {
-      return { content: data.content[0].text };
+    if (data.choices && data.choices.length > 0) {
+      return { content: data.choices[0].message.content };
     }
 
     throw new Error('无效的API响应');

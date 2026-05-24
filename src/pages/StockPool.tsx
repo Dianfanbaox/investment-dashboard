@@ -24,6 +24,10 @@ export default function StockPool() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({ code: '', name: '', market: 'us' as const, price: 0, tags: '', notes: '', poolId: '1' });
   const [isEditing, setIsEditing] = useState<Stock | null>(null);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [batchText, setBatchText] = useState('');
+  const [batchPoolId, setBatchPoolId] = useState('1');
+  const [isBatchLoading, setIsBatchLoading] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('stockPoolStocks', JSON.stringify(stocks));
@@ -188,6 +192,98 @@ export default function StockPool() {
     setShowAddModal(true);
   };
 
+  const handleBatchTextImport = async () => {
+    const lines = batchText.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) {
+      toast.error('请输入至少一个股票代码');
+      return;
+    }
+    const existingCodes = new Set(stocks.map(s => s.code));
+    const newCodes = lines.filter(c => !existingCodes.has(c.toUpperCase()));
+    if (newCodes.length === 0) {
+      toast.info('所有股票都已在池中');
+      return;
+    }
+    setIsBatchLoading(true);
+    toast.info(`正在获取 ${newCodes.length} 只股票信息...`);
+    const newStocks: Stock[] = [];
+    for (const code of newCodes) {
+      const market = detectMarket(code);
+      const quote = await getQuote(code, market);
+      newStocks.push({
+        id: Date.now().toString() + Math.random(),
+        code: code.toUpperCase(),
+        name: quote?.name || code,
+        market: market || 'hk',
+        price: quote?.price || 0,
+        change: quote?.change || 0,
+        changePercent: quote?.changePercent || 0,
+        tags: [],
+        notes: '',
+        addedAt: new Date(),
+        poolId: batchPoolId,
+      });
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    setStocks(prev => [...prev, ...newStocks]);
+    setShowBatchModal(false);
+    setBatchText('');
+    setIsBatchLoading(false);
+    toast.success(`成功添加 ${newStocks.length} 只股票`);
+  };
+
+  const handleCSVImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length < 2) {
+          toast.error('CSV 文件为空或格式错误');
+          return;
+        }
+        const header = lines[0].toLowerCase();
+        if (!header.includes('code') && !header.includes('代码')) {
+          toast.error('CSV 第一行必须是表头，包含 code 或 代码 列');
+          return;
+        }
+        const existingCodes = new Set(stocks.map(s => s.code));
+        const newStocks: Stock[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.trim());
+          if (cols.length < 1 || !cols[0]) continue;
+          const code = cols[0].toUpperCase();
+          if (existingCodes.has(code)) continue;
+          newStocks.push({
+            id: Date.now().toString() + Math.random() + i,
+            code,
+            name: cols[1] || code,
+            market: (cols[2] as any) || 'hk',
+            price: parseFloat(cols[3]) || 0,
+            change: 0,
+            changePercent: 0,
+            tags: cols[4] ? cols[4].split('|').map(t => t.trim()).filter(Boolean) : [],
+            notes: cols[5] || '',
+            addedAt: new Date(),
+            poolId: batchPoolId,
+          });
+        }
+        if (newStocks.length === 0) {
+          toast.info('没有新股票需要导入');
+          return;
+        }
+        setStocks(prev => [...prev, ...newStocks]);
+        toast.success(`成功导入 ${newStocks.length} 只股票`);
+      } catch {
+        toast.error('文件解析失败');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
   return (
     <div className="space-y-6">
       {/* 页面标题 */}
@@ -204,6 +300,10 @@ export default function StockPool() {
           <button onClick={() => { setIsEditing(null); setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '' }); setShowAddModal(true); }} className="btn-primary flex items-center gap-2">
             <i className="fa-solid fa-plus"></i>
             <span>添加股票</span>
+          </button>
+          <button onClick={() => setShowBatchModal(true)} className="btn-secondary flex items-center gap-2 text-sm">
+            <i className="fa-solid fa-layer-group"></i>
+            <span>批量添加</span>
           </button>
         </div>
       </div>
@@ -296,8 +396,15 @@ export default function StockPool() {
                 <div className="w-10 h-10 rounded-xl bg-[#5E5CE6]/10 flex items-center justify-center">
                   <i className="fa-solid fa-file-import text-[#5E5CE6]"></i>
                 </div>
-                <span className="text-sm font-medium text-[#1A1A2E]">批量导入</span>
+                <span className="text-sm font-medium text-[#1A1A2E]">导入JSON</span>
                 <input type="file" accept=".json" onChange={importStocks} className="hidden" />
+              </label>
+              <label className="w-full p-4 bg-[#F8F9FC] rounded-2xl flex items-center gap-3 hover:bg-black/5 transition-colors cursor-pointer">
+                <div className="w-10 h-10 rounded-xl bg-[#FFB299]/10 flex items-center justify-center">
+                  <i className="fa-solid fa-file-csv text-[#FF8E6E]"></i>
+                </div>
+                <span className="text-sm font-medium text-[#1A1A2E]">导入CSV</span>
+                <input type="file" accept=".csv" onChange={handleCSVImport} className="hidden" />
               </label>
               <button onClick={exportStocks} className="w-full p-4 bg-[#F8F9FC] rounded-2xl flex items-center gap-3 hover:bg-black/5 transition-colors">
                 <div className="w-10 h-10 rounded-xl bg-[#34C759]/10 flex items-center justify-center">
@@ -309,6 +416,46 @@ export default function StockPool() {
           </div>
         </div>
       </div>
+
+      {/* 批量添加弹窗 */}
+      {showBatchModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowBatchModal(false)}>
+          <div className="soft-card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-[#1A1A2E]">批量添加股票</h2>
+              <button onClick={() => setShowBatchModal(false)} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
+                <i className="fa-solid fa-times text-[#9CA3AF]"></i>
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[#6B7280] mb-1 block">股票代码（每行一个）</label>
+                <textarea
+                  className="input-soft w-full h-40 resize-none font-mono"
+                  placeholder={"1810\n9988\n0700\n3690\nAAPL\nTSLA"}
+                  value={batchText}
+                  onChange={(e) => setBatchText(e.target.value)}
+                />
+                <p className="text-xs text-[#9CA3AF] mt-1">支持港股、A股、美股代码，自动获取名称和价格</p>
+              </div>
+              <div>
+                <label className="text-sm text-[#6B7280] mb-1 block">添加到</label>
+                <select className="input-soft w-full" value={batchPoolId} onChange={(e) => setBatchPoolId(e.target.value)}>
+                  <option value="1">核心池</option>
+                  <option value="2">关注池</option>
+                </select>
+              </div>
+              <button onClick={handleBatchTextImport} disabled={isBatchLoading} className="w-full btn-primary disabled:opacity-50">
+                {isBatchLoading ? (
+                  <span><i className="fa-solid fa-spinner fa-spin mr-2"></i>正在获取股票信息...</span>
+                ) : (
+                  <span><i className="fa-solid fa-layer-group mr-2"></i>批量添加</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 添加/编辑股票弹窗 */}
       {showAddModal && (
