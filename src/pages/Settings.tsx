@@ -123,9 +123,12 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       {/* 页面标题 */}
-      <div>
-        <h1 className="text-2xl font-bold text-[#1A1A2E]">系统设置</h1>
-        <p className="text-sm text-[#9CA3AF] mt-1">管理您的个人设置和数据</p>
+      <div className="flex items-center gap-3 md:gap-4">
+        <img src="/ip-characters.png" alt="" className="h-10 md:h-16 opacity-80" />
+        <div>
+          <h1 className="text-2xl font-bold text-[#1A1A2E]">系统设置</h1>
+          <p className="text-sm text-[#9CA3AF] mt-1">管理您的个人设置和数据</p>
+        </div>
       </div>
 
       {/* Tab切换 */}

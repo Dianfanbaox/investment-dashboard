@@ -160,9 +160,12 @@ export default function DisciplineSystem() {
     <div className="space-y-6">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1A1A2E]">交易纪律</h1>
-          <p className="text-sm text-[#9CA3AF] mt-1">设置和管理您的交易规则</p>
+        <div className="flex items-center gap-2 md:gap-3">
+          <img src="/ip-characters.png" alt="" className="h-8 md:h-12 opacity-90" />
+          <div>
+            <h1 className="text-2xl font-bold text-[#1A1A2E]">交易纪律</h1>
+            <p className="text-sm text-[#9CA3AF] mt-1">设置和管理您的交易规则</p>
+          </div>
         </div>
         <div className="flex gap-3">
           <button onClick={exportRules} className="btn-secondary flex items-center gap-2">
@@ -257,9 +260,7 @@ export default function DisciplineSystem() {
           <div className="space-y-4">
             {rules.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 rounded-full bg-[#F8F9FC] flex items-center justify-center mx-auto mb-4">
-                  <i className="fa-solid fa-shield-halved text-2xl text-[#9CA3AF]"></i>
-                </div>
+                <img src="/ip-characters.png" alt="" className="h-16 md:h-24 mx-auto mb-4 opacity-80" />
                 <p className="text-sm text-[#9CA3AF] mb-4">暂无规则，点击上方按钮添加</p>
                 <button onClick={() => setShowTemplateModal(true)} className="btn-secondary">从模板添加</button>
               </div>
@@ -358,9 +359,7 @@ export default function DisciplineSystem() {
           <div className="space-y-4">
             {violations.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 rounded-full bg-[#F8F9FC] flex items-center justify-center mx-auto mb-4">
-                  <i className="fa-solid fa-check-circle text-2xl text-[#34C759]"></i>
-                </div>
+                <img src="/ip-characters.png" alt="" className="h-16 md:h-24 mx-auto mb-4 opacity-80" />
                 <p className="text-sm text-[#9CA3AF]">暂无违规记录</p>
               </div>
             ) : (

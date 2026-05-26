@@ -190,9 +190,12 @@ export default function AIAnalysis() {
     <div className="space-y-6">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1A1A2E]">AI分析</h1>
-          <p className="text-sm text-[#9CA3AF] mt-1">智能投资分析和助手</p>
+        <div className="flex items-center gap-2 md:gap-3">
+          <img src="/ip-characters.png" alt="" className="h-8 md:h-12 opacity-90" />
+          <div>
+            <h1 className="text-2xl font-bold text-[#1A1A2E]">AI分析</h1>
+            <p className="text-sm text-[#9CA3AF] mt-1">智能投资分析和助手</p>
+          </div>
         </div>
         <button onClick={() => setIsApiConfigured(!isApiConfigured)} className="btn-secondary flex items-center gap-2">
           <i className="fa-solid fa-key"></i>
@@ -292,6 +295,9 @@ export default function AIAnalysis() {
           </div>
 
           <div className="soft-card p-6">
+            <div className="text-center mb-4">
+              <img src="/ip-characters.png" alt="" className="h-14 md:h-20 mx-auto mb-3 opacity-80" />
+            </div>
             <h3 className="text-sm font-semibold text-[#1A1A2E] mb-4">快速提问</h3>
             <div className="space-y-3">
               {[

@@ -65,11 +65,14 @@ export default function TradingInsights() {
     <div className="space-y-6">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1A1A2E]">交易心得</h1>
-          <p className="text-sm text-[#9CA3AF] mt-1">记录和回顾您的投资思考</p>
+        <div className="flex items-center gap-2 md:gap-3">
+          <img src="/ip-characters.png" alt="" className="h-8 md:h-12 opacity-90" />
+          <div>
+            <h1 className="text-2xl font-bold text-[#1A1A2E]">交易心得</h1>
+            <p className="text-sm text-[#9CA3AF] mt-1">记录和回顾您的投资思考</p>
+          </div>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2">
+        <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
           <i className="fa-solid fa-plus"></i>
           <span>写心得</span>
         </button>
@@ -99,9 +102,7 @@ export default function TradingInsights() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredInsights.length === 0 ? (
           <div className="col-span-full soft-card p-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-[#F8F9FC] flex items-center justify-center mx-auto mb-4">
-              <i className="fa-solid fa-lightbulb text-2xl text-[#9CA3AF]"></i>
-            </div>
+            <img src="/ip-characters.png" alt="" className="h-16 md:h-24 mx-auto mb-4 opacity-80" />
             <p className="text-sm text-[#9CA3AF] mb-4">还没有心得记录</p>
             <button onClick={() => setShowAddModal(true)} className="btn-primary">写第一篇心得</button>
           </div>

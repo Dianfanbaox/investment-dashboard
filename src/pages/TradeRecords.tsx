@@ -182,27 +182,25 @@ export default function TradeRecords() {
     <div className="space-y-6">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1A1A2E]">交易记录</h1>
-          <p className="text-sm text-[#9CA3AF] mt-1">管理和分析您的交易数据</p>
+        <div className="flex items-center gap-2 md:gap-3">
+          <img src="/ip-characters.png" alt="" className="h-8 md:h-12 opacity-90" />
+          <div>
+            <h1 className="text-2xl font-bold text-[#1A1A2E]">交易记录</h1>
+            <p className="text-sm text-[#9CA3AF] mt-1">管理和分析您的交易数据</p>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={handleExportCSV} className="btn-secondary flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
+          <button onClick={handleExportCSV} className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
             <i className="fa-solid fa-download"></i>
-            <span>导出</span>
+            <span className="hidden sm:inline">导出</span>
           </button>
-          <label className="btn-secondary flex items-center gap-2 text-sm cursor-pointer">
+          <label className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 cursor-pointer">
             <i className="fa-solid fa-upload"></i>
-            <span>导入</span>
-            <input type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
+            <span className="hidden sm:inline">导入</span>
           </label>
-          <button onClick={handleDownloadTemplate} className="btn-secondary flex items-center gap-2 text-sm">
-            <i className="fa-solid fa-file-alt"></i>
-            <span>模板</span>
-          </button>
-          <button onClick={() => setIsAddTradeOpen(true)} className="btn-primary flex items-center gap-2">
+          <button onClick={() => setIsAddTradeOpen(true)} className="btn-primary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
             <i className="fa-solid fa-plus"></i>
-            <span>添加交易</span>
+            <span>添加</span>
           </button>
         </div>
       </div>
@@ -351,7 +349,8 @@ export default function TradeRecords() {
             </select>
           </div>
         </div>
-        <table className="data-table">
+        <div className="overflow-x-auto">
+        <table className="data-table min-w-[600px]">
           <thead>
             <tr>
               <th>日期</th>
@@ -366,11 +365,14 @@ export default function TradeRecords() {
           </thead>
           <tbody>
             {filteredTrades.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-12 text-[#9CA3AF]">暂无交易记录</td></tr>
+              <tr><td colSpan={8} className="text-center py-12">
+                <img src="/ip-characters.png" alt="" className="h-16 md:h-24 mx-auto mb-4 opacity-80" />
+                <p className="text-sm text-[#9CA3AF]">暂无交易记录</p>
+              </td></tr>
             ) : (
               filteredTrades.map((trade) => (
                 <tr key={trade.id}>
-                  <td className="text-[#9CA3AF]">{format(new Date(trade.timestamp), 'yyyy-MM-dd')}</td>
+                  <td className="text-[#9CA3AF] whitespace-nowrap">{format(new Date(trade.timestamp), 'yyyy-MM-dd')}</td>
                   <td>
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#5E5CE6]/10 to-[#7B78E8]/10 flex items-center justify-center">
@@ -397,6 +399,7 @@ export default function TradeRecords() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* 添加交易弹窗 */}

@@ -37,7 +37,7 @@ export default function DashboardLayout() {
   const mainContentMargin = isSidebarCollapsed ? 'ml-20' : 'ml-64';
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F8F9FC]">
+    <div className="flex h-screen overflow-hidden" style={{ background: '#FFF8E7' }}>
       {/* 桌面端侧边栏 */}
       <div className="hidden lg:flex">
         <Sidebar isCollapsed={isSidebarCollapsed} toggleSidebar={toggleSidebar} />
@@ -52,9 +52,10 @@ export default function DashboardLayout() {
           />
         )}
         <div
-          className={`fixed top-0 left-0 bottom-0 w-64 bg-white/95 backdrop-blur-xl border-r border-black/5 transition-transform duration-300 ${
+          className={`fixed top-0 left-0 bottom-0 w-64 backdrop-blur-xl border-r border-black/5 transition-transform duration-300 ${
             isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
+          style={{ background: '#FFF5D6' }}
         >
           <Sidebar isCollapsed={false} toggleSidebar={toggleMobileMenu} />
         </div>
@@ -64,7 +65,7 @@ export default function DashboardLayout() {
       <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${mainContentMargin}`}>
         <Header toggleSidebar={toggleSidebar} toggleMobileMenu={toggleMobileMenu} isMobile={windowWidth < 768} />
 
-        <main className="flex-1 overflow-y-auto bg-[#F8F9FC] p-6">
+        <main className="flex-1 overflow-y-auto p-6" style={{ background: '#FFF8E7' }}>
           <Outlet />
         </main>
       </div>

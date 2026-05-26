@@ -2,21 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 投资看板 - 现代轻量级玻璃拟态风格 */
+/* 投资看板 - 软萌卡通风 */
 :root {
-  --bg-primary: #F8F9FC;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --bg-card-hover: rgba(255, 255, 255, 0.95);
+  --bg-primary: #FFF8E7;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #FFFCF5;
+  --bg-sidebar: #FFF5D6;
+  --bg-banner: #E8F5E9;
   --accent-orange: #FF8E6E;
   --accent-orange-light: #FFB299;
-  --accent-purple: #5E5CE6;
-  --accent-purple-light: #7B78E8;
-  --text-primary: #1A1A2E;
-  --text-secondary: #6B7280;
-  --text-muted: #9CA3AF;
-  --border-subtle: rgba(255, 255, 255, 0.6);
-  --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.04);
-  --shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.08);
+  --accent-purple: #7C4DFF;
+  --accent-purple-light: #B388FF;
+  --accent-green: #4CAF50;
+  --accent-green-light: #81C784;
+  --text-primary: #2D2D2D;
+  --text-secondary: #888888;
+  --text-muted: #BBBBBB;
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.04);
+  --shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -26,20 +30,18 @@
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+  font-family: 'ZCOOL KuaiLe', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
-/* 玻璃拟态卡片 */
+/* 卡片样式 - 软萌风格 */
 .glass-card {
   background: var(--bg-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border-subtle);
-  border-radius: 24px;
+  border-radius: 20px;
   box-shadow: var(--shadow-soft);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
 }
 
 .glass-card:hover {
@@ -51,13 +53,13 @@ body {
 .soft-card {
   background: white;
   border-radius: 20px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
 }
 
 .soft-card:hover {
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
 }
 
 /* 强调色 */
@@ -88,45 +90,45 @@ body {
 
 /* 上涨/下跌 */
 .gain {
-  color: #34C759;
+  color: #4CAF50;
 }
 
 .loss {
-  color: #FF3B30;
+  color: #FF5252;
 }
 
 /* 按钮样式 */
 .btn-primary {
   background: linear-gradient(135deg, var(--accent-orange) 0%, var(--accent-orange-light) 100%);
   color: white;
-  padding: 12px 24px;
-  border-radius: 16px;
+  padding: 10px 22px;
+  border-radius: 20px;
   font-weight: 600;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(255, 142, 110, 0.3);
+  box-shadow: 0 3px 12px rgba(255, 142, 110, 0.25);
 }
 
 .btn-primary:hover {
-  box-shadow: 0 6px 24px rgba(255, 142, 110, 0.4);
+  box-shadow: 0 5px 20px rgba(255, 142, 110, 0.35);
   transform: translateY(-1px);
 }
 
 .btn-secondary {
   background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-purple-light) 100%);
   color: white;
-  padding: 12px 24px;
-  border-radius: 16px;
+  padding: 10px 22px;
+  border-radius: 20px;
   font-weight: 600;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(94, 92, 230, 0.3);
+  box-shadow: 0 3px 12px rgba(124, 77, 255, 0.25);
 }
 
 .btn-secondary:hover {
-  box-shadow: 0 6px 24px rgba(94, 92, 230, 0.4);
+  box-shadow: 0 5px 20px rgba(124, 77, 255, 0.35);
   transform: translateY(-1px);
 }
 
@@ -191,30 +193,30 @@ body {
 .tag {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
+  padding: 4px 12px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 500;
 }
 
 .tag-orange {
-  background: rgba(255, 142, 110, 0.15);
+  background: rgba(255, 142, 110, 0.12);
   color: var(--accent-orange);
 }
 
 .tag-purple {
-  background: rgba(94, 92, 230, 0.15);
+  background: rgba(124, 77, 255, 0.12);
   color: var(--accent-purple);
 }
 
 .tag-green {
-  background: rgba(52, 199, 89, 0.15);
-  color: #34C759;
+  background: rgba(76, 175, 80, 0.12);
+  color: #4CAF50;
 }
 
 .tag-red {
-  background: rgba(255, 59, 48, 0.15);
-  color: #FF3B30;
+  background: rgba(255, 82, 82, 0.12);
+  color: #FF5252;
 }
 
 /* 表格样式 */
@@ -225,16 +227,15 @@ body {
 
 .data-table th {
   text-align: left;
-  padding: 14px 16px;
-  font-size: 11px;
+  padding: 12px 16px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 .data-table td {
-  padding: 16px;
+  padding: 14px 16px;
   font-size: 14px;
 }
 
@@ -247,7 +248,7 @@ body {
 }
 
 .data-table tr:hover td {
-  background: rgba(0, 0, 0, 0.02);
+  background: rgba(76, 175, 80, 0.04);
 }
 
 /* 输入框 */
@@ -332,16 +333,16 @@ body {
 .sidebar-link {
   display: flex;
   align-items: center;
-  padding: 14px 18px;
-  border-radius: 16px;
+  padding: 12px 16px;
+  border-radius: 20px;
   color: var(--text-secondary);
   font-weight: 500;
   transition: all 0.2s ease;
 }
 
 .sidebar-link:hover {
-  background: rgba(0, 0, 0, 0.04);
-  color: var(--text-primary);
+  background: rgba(255, 142, 110, 0.1);
+  color: var(--accent-orange);
 }
 
 .sidebar-link.active {
@@ -408,4 +409,45 @@ body {
 /* 内发光效果 */
 .inner-glow {
   box-shadow: inset 0 2px 8px rgba(255, 142, 110, 0.1);
+}
+
+/* ========== Kawaii 设计系统 ========== */
+
+/* Kawaii 边框样式 */
+.kawaii-border {
+  border: 2.5px solid #4a4a4a;
+  border-radius: 24px;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.05);
+}
+
+/* 手绘边框样式 */
+.hand-drawn-border {
+  border: 3px solid #333;
+  border-radius: 30px 25px 35px 20px / 20px 35px 25px 30px;
+}
+
+/* 彩色卡片背景 */
+.card-blue {
+  background-color: #e8f4ff;
+}
+
+.card-green {
+  background-color: #effdf0;
+}
+
+.card-red {
+  background-color: #fff1f1;
+}
+
+.card-yellow {
+  background-color: #fff9e6;
+}
+
+/* 装饰元素 */
+.decor-star {
+  color: #fbbf24;
+}
+
+.decor-emoji {
+  font-size: 1.5rem;
 }

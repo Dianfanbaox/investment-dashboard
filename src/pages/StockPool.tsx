@@ -288,22 +288,25 @@ export default function StockPool() {
     <div className="space-y-6">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1A1A2E]">股票池</h1>
-          <p className="text-sm text-[#9CA3AF] mt-1">管理您的自选股票</p>
+        <div className="flex items-center gap-2 md:gap-3">
+          <img src="/ip-characters.png" alt="" className="h-8 md:h-12 opacity-90" />
+          <div>
+            <h1 className="text-2xl font-bold text-[#1A1A2E]">股票池</h1>
+            <p className="text-sm text-[#9CA3AF] mt-1">管理您的自选股票</p>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={handleRefreshPrices} className="btn-secondary flex items-center gap-2 text-sm">
-            <i className="fa-solid fa-refresh"></i>
-            <span>刷新价格</span>
-          </button>
-          <button onClick={() => { setIsEditing(null); setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '' }); setShowAddModal(true); }} className="btn-primary flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
+          <button onClick={() => { setIsEditing(null); setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '', poolId: '1' }); setShowAddModal(true); }} className="btn-primary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
             <i className="fa-solid fa-plus"></i>
-            <span>添加股票</span>
+            <span>添加</span>
           </button>
-          <button onClick={() => setShowBatchModal(true)} className="btn-secondary flex items-center gap-2 text-sm">
+          <button onClick={() => setShowBatchModal(true)} className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
             <i className="fa-solid fa-layer-group"></i>
-            <span>批量添加</span>
+            <span className="hidden sm:inline">批量</span>
+          </button>
+          <button onClick={handleRefreshPrices} className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
+            <i className="fa-solid fa-refresh"></i>
+            <span className="hidden sm:inline">刷新</span>
           </button>
         </div>
       </div>
@@ -323,9 +326,7 @@ export default function StockPool() {
         <div className="lg:col-span-2 space-y-4">
           {currentPool.stocks.length === 0 ? (
             <div className="soft-card p-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-[#F8F9FC] flex items-center justify-center mx-auto mb-4">
-                <i className="fa-solid fa-inbox text-2xl text-[#9CA3AF]"></i>
-              </div>
+              <img src="/ip-characters.png" alt="" className="h-16 md:h-24 mx-auto mb-4 opacity-80" />
               <p className="text-sm text-[#9CA3AF]">暂无股票</p>
             </div>
           ) : (
