@@ -164,7 +164,7 @@ export default function Dashboard() {
         <div className="card-green kawaii-border p-4 relative card-enter">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm font-bold text-gray-600">浮动盈亏 <span className="text-xs text-gray-400 font-normal">( )</span></p>
+              <p className="text-sm font-bold text-gray-600">浮动盈亏 <span className="text-green-400">●</span></p>
               <div className="mt-2">
                 <span className={`text-2xl font-bold ${totalFloatingPnL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {totalFloatingPnL >= 0 ? '+' : ''}¥{Math.abs(totalFloatingPnL).toLocaleString()}
