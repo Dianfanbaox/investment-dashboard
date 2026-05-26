@@ -3,6 +3,8 @@ import { Stock, TradeRecord } from '@/types';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { toast } from 'sonner';
 import { getQuote, detectMarket } from '@/services/marketService';
+import { confirmDelete } from '@/lib/utils';
+import AnimatedModal from '@/components/AnimatedModal';
 
 const COLORS = ['#FF8E6E', '#5E5CE6', '#34C759', '#5856D6', '#FFB299', '#7B78E8'];
 
@@ -23,11 +25,21 @@ export default function StockPool() {
   const [selectedPool, setSelectedPool] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({ code: '', name: '', market: 'us' as const, price: 0, tags: '', notes: '', poolId: '1' });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const validateStockForm = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.code.trim()) errors.code = '请输入股票代码';
+    if (!formData.name.trim()) errors.name = '请输入股票名称';
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
   const [isEditing, setIsEditing] = useState<Stock | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [batchText, setBatchText] = useState('');
   const [batchPoolId, setBatchPoolId] = useState('1');
   const [isBatchLoading, setIsBatchLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('stockPoolStocks', JSON.stringify(stocks));
@@ -45,10 +57,7 @@ export default function StockPool() {
   const chartData = currentPool.stocks.slice(0, 6).map((s, i) => ({ name: s.code, value: s.price * 10, fill: COLORS[i % COLORS.length] }));
 
   const handleAddStock = () => {
-    if (!formData.code.trim() || !formData.name.trim()) {
-      toast.error('请填写股票代码和名称');
-      return;
-    }
+    if (!validateStockForm()) return;
     const newStock: Stock = {
       id: Date.now().toString(),
       code: formData.code.toUpperCase(),
@@ -69,7 +78,7 @@ export default function StockPool() {
   };
 
   const handleUpdateStock = () => {
-    if (!isEditing || !formData.code.trim() || !formData.name.trim()) return;
+    if (!isEditing || !validateStockForm()) return;
     setStocks(stocks.map(s => s.id === isEditing.id ? {
       ...s,
       code: formData.code.toUpperCase(),
@@ -86,7 +95,8 @@ export default function StockPool() {
     toast.success('股票已更新');
   };
 
-  const handleDeleteStock = (id: string) => {
+  const handleDeleteStock = async (id: string) => {
+    if (!await confirmDelete('确定要删除这只股票吗？')) return;
     setStocks(stocks.filter(s => s.id !== id));
     toast.success('股票已删除');
   };
@@ -116,6 +126,7 @@ export default function StockPool() {
         code: code.toUpperCase(),
         market: market || prev.market,
       }));
+      toast.warning(`无法获取 ${code} 的行情数据，请手动填写名称和价格`);
     }
     setIsFetchingQuote(false);
   };
@@ -125,22 +136,28 @@ export default function StockPool() {
       toast.error('股票池为空');
       return;
     }
-    toast.info('正在刷新价格...');
-    let updated = 0;
-    for (const stock of stocks) {
-      const market = detectMarket(stock.code) || stock.market;
-      const quote = await getQuote(stock.code, market);
-      if (quote) {
-        setStocks(prev => prev.map(s =>
-          s.id === stock.id
-            ? { ...s, price: quote.price, change: quote.change, changePercent: quote.changePercent }
-            : s
-        ));
-        updated++;
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      toast.info('正在刷新价格...');
+      let updated = 0;
+      for (const stock of stocks) {
+        const market = detectMarket(stock.code) || stock.market;
+        const quote = await getQuote(stock.code, market);
+        if (quote) {
+          setStocks(prev => prev.map(s =>
+            s.id === stock.id
+              ? { ...s, price: quote.price, change: quote.change, changePercent: quote.changePercent }
+              : s
+          ));
+          updated++;
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
-      await new Promise(resolve => setTimeout(resolve, 200));
+      toast.success(`已更新 ${updated} 只股票价格`);
+    } finally {
+      setIsRefreshing(false);
     }
-    toast.success(`已更新 ${updated} 只股票价格`);
   };
 
   const exportStocks = () => {
@@ -304,9 +321,9 @@ export default function StockPool() {
             <i className="fa-solid fa-layer-group"></i>
             <span className="hidden sm:inline">批量</span>
           </button>
-          <button onClick={handleRefreshPrices} className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
-            <i className="fa-solid fa-refresh"></i>
-            <span className="hidden sm:inline">刷新</span>
+          <button onClick={handleRefreshPrices} disabled={isRefreshing} className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 disabled:opacity-50">
+            <i className={`fa-solid ${isRefreshing ? 'fa-spinner fa-spin' : 'fa-refresh'}`}></i>
+            <span className="hidden sm:inline">{isRefreshing ? '刷新中' : '刷新'}</span>
           </button>
         </div>
       </div>
@@ -419,9 +436,7 @@ export default function StockPool() {
       </div>
 
       {/* 批量添加弹窗 */}
-      {showBatchModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowBatchModal(false)}>
-          <div className="soft-card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+      <AnimatedModal isOpen={showBatchModal} onClose={() => setShowBatchModal(false)}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-[#1A1A2E]">批量添加股票</h2>
               <button onClick={() => setShowBatchModal(false)} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
@@ -454,14 +469,10 @@ export default function StockPool() {
                 )}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
 
       {/* 添加/编辑股票弹窗 */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowAddModal(false); setIsEditing(null); }}>
-          <div className="soft-card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+      <AnimatedModal isOpen={showAddModal} onClose={() => { setShowAddModal(false); setIsEditing(null); }}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-[#1A1A2E]">{isEditing ? '编辑股票' : '添加股票'}</h2>
               <button onClick={() => { setShowAddModal(false); setIsEditing(null); }} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
@@ -475,20 +486,22 @@ export default function StockPool() {
                   <div className="relative">
                     <input
                       type="text"
-                      className="input-soft w-full pr-10"
+                      className={`input-soft w-full pr-10 ${formErrors.code ? 'input-error' : ''}`}
                       placeholder="输入代码后自动获取信息"
                       value={formData.code}
-                      onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                      onBlur={(e) => handleStockCodeBlur(e.target.value)}
+                      onChange={(e) => { setFormData({ ...formData, code: e.target.value }); if (formErrors.code) setFormErrors(prev => { const next = { ...prev }; delete next.code; return next; }); }}
+                      onBlur={(e) => { handleStockCodeBlur(e.target.value); if (formErrors.code && e.target.value) setFormErrors(prev => { const next = { ...prev }; delete next.code; return next; }); }}
                     />
                     {isFetchingQuote && (
                       <i className="fa-solid fa-spinner fa-spin absolute right-3 top-1/2 -translate-y-1/2 text-[#FF8E6E]"></i>
                     )}
                   </div>
+                  {formErrors.code && <p className="field-error">{formErrors.code}</p>}
                 </div>
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">股票名称 *</label>
-                  <input type="text" className="input-soft w-full" placeholder="自动获取或手动输入" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                  <input type="text" className={`input-soft w-full ${formErrors.name ? 'input-error' : ''}`} placeholder="自动获取或手动输入" value={formData.name} onChange={(e) => { setFormData({ ...formData, name: e.target.value }); if (formErrors.name) setFormErrors(prev => { const next = { ...prev }; delete next.name; return next; }); }} />
+                  {formErrors.name && <p className="field-error">{formErrors.name}</p>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -527,9 +540,7 @@ export default function StockPool() {
                 {isEditing ? '保存修改' : '添加股票'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
     </div>
   );
 }

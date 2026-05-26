@@ -1,21 +1,8 @@
 import { useMemo } from 'react';
 import { TradeRecord, Position, PositionsSummary, Stock } from '../types';
+import { loadTradesFromStorage } from '../lib/utils';
 
-const STORAGE_KEY = 'trades';
 const STOCK_POOL_KEY = 'stockPoolStocks';
-
-function loadTrades(): TradeRecord[] {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) return [];
-    return JSON.parse(data, (key, value) => {
-      if (key === 'timestamp') return new Date(value);
-      return value;
-    });
-  } catch {
-    return [];
-  }
-}
 
 function loadStockPoolPrices(): Map<string, number> {
   try {
@@ -47,7 +34,7 @@ function groupByStock(trades: TradeRecord[]): Map<string, TradeRecord[]> {
 }
 
 export function usePositions(): PositionsSummary {
-  const trades = useMemo(() => loadTrades(), []);
+  const trades = useMemo(() => loadTradesFromStorage(), []);
   const stockPoolPrices = useMemo(() => loadStockPoolPrices(), []);
 
   const summary = useMemo(() => {

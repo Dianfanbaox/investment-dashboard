@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { TradingInsight } from '@/types';
 import { toast } from 'sonner';
+import { confirmDelete } from '@/lib/utils';
+import AnimatedModal from '@/components/AnimatedModal';
 
 export default function TradingInsights() {
   const [insights, setInsights] = useState<TradingInsight[]>(() => {
@@ -56,7 +58,8 @@ export default function TradingInsights() {
       .sort((a, b) => b.count - a.count);
   }, [insights]);
 
-  const handleDeleteInsight = (id: string) => {
+  const handleDeleteInsight = async (id: string) => {
+    if (!await confirmDelete('确定要删除这条心得吗？')) return;
     setInsights(insights.filter(i => i.id !== id));
     toast.success('心得已删除');
   };
@@ -135,9 +138,7 @@ export default function TradingInsights() {
       </div>
 
       {/* 添加心得弹窗 */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
-          <div className="soft-card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+      <AnimatedModal isOpen={showAddModal} onClose={() => setShowAddModal(false)}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-[#1A1A2E]">写心得</h2>
               <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
@@ -159,9 +160,7 @@ export default function TradingInsights() {
               </div>
               <button onClick={handleSaveInsight} className="w-full btn-primary">保存</button>
             </div>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
     </div>
   );
 }

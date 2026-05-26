@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { loadTradesFromStorage } from '@/lib/utils';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import { sendMessageToClaude } from '@/services/aiService';
 import { usePositions } from '@/hooks/usePositions';
@@ -27,7 +28,7 @@ export default function AIAnalysis() {
 
   // 业绩分析：按月计算已实现盈亏（FIFO）
   const performanceData = (() => {
-    const trades = loadTrades().sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const trades = loadTradesFromStorage().sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     const monthlyPnL: { [key: string]: number } = {};
 
     // FIFO 计算每笔卖出的盈亏
@@ -65,7 +66,7 @@ export default function AIAnalysis() {
 
   // 交易习惯评估
   const tradingHabits = (() => {
-    const trades = loadTrades().sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const trades = loadTradesFromStorage().sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     const sellTrades = trades.filter(t => t.type === 'sell');
 
     // 1. 分散投资：持仓股票数量
@@ -120,16 +121,6 @@ export default function AIAnalysis() {
       { name: '胜率', score: winRate, status: winRate >= 60 ? 'positive' : winRate >= 40 ? 'neutral' : 'negative', detail: `${winSells}/${sellTrades.length}` },
     ];
   })();
-
-  function loadTrades(): TradeRecord[] {
-    try {
-      const data = localStorage.getItem('trades');
-      if (!data) return [];
-      return JSON.parse(data, (k: string, v: unknown) => k === 'timestamp' ? new Date(v as string) : v);
-    } catch {
-      return [];
-    }
-  }
 
   const handleSendMessage = async () => {
     if (!userInput.trim()) return;

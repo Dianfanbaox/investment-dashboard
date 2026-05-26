@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { DisciplineRule, ViolationRecord } from '@/types';
 import { toast } from 'sonner';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line } from 'recharts';
+import { confirmDelete } from '@/lib/utils';
+import AnimatedModal from '@/components/AnimatedModal';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 const defaultRules: DisciplineRule[] = [
   { id: '1', name: '止损规则', description: '当股票价格下跌超过5%时自动止损', conditions: [{ id: 'c1', type: 'loss', operator: 'greater', value: 5, parameter: 'percentage' }], actions: [{ id: 'a1', type: 'alert', message: '股票价格下跌超过5%，建议止损', severity: 'warning' }], severity: 'high', enabled: true, createdAt: new Date(), updatedAt: new Date() },
@@ -45,12 +47,27 @@ export default function DisciplineSystem() {
   }, [violations]);
 
   const calculateHistory = () => {
+    const enabledRuleCount = rules.filter(r => r.enabled).length;
+    const baseline = enabledRuleCount * 30; // 假设每条启用规则每天检查一次
     const monthlyData: { [key: string]: { 遵守: number, 违反: number } } = {};
+
+    // 初始化近6个月
     for (let i = 5; i >= 0; i--) {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
-      monthlyData[`${date.getMonth() + 1}月`] = { 遵守: 75 + Math.floor(Math.random() * 25), 违反: 5 + Math.floor(Math.random() * 15) };
+      monthlyData[`${date.getMonth() + 1}月`] = { 遵守: baseline, 违反: 0 };
     }
+
+    // 按月统计真实违规记录
+    violations.forEach(v => {
+      const date = new Date(v.timestamp);
+      const key = `${date.getMonth() + 1}月`;
+      if (monthlyData[key] !== undefined) {
+        monthlyData[key].违反 += 1;
+        monthlyData[key].遵守 = Math.max(0, baseline - monthlyData[key].违反);
+      }
+    });
+
     return Object.entries(monthlyData).map(([name, data]) => ({ name, 遵守: data.遵守, 违反: data.违反 }));
   };
 
@@ -64,7 +81,8 @@ export default function DisciplineSystem() {
     toast.success('规则状态已更新');
   };
 
-  const deleteRule = (id: string) => {
+  const deleteRule = async (id: string) => {
+    if (!await confirmDelete('确定要删除这条规则吗？')) return;
     setRules(rules.filter(r => r.id !== id));
     toast.success('规则已删除');
   };
@@ -151,7 +169,8 @@ export default function DisciplineSystem() {
     toast.success('违规记录已标记为已处理');
   };
 
-  const deleteViolation = (id: string) => {
+  const deleteViolation = async (id: string) => {
+    if (!await confirmDelete('确定要删除这条违规记录吗？')) return;
     setViolations(violations.filter(v => v.id !== id));
     toast.success('违规记录已删除');
   };
@@ -418,9 +437,8 @@ export default function DisciplineSystem() {
       )}
 
       {/* 规则详情弹窗 */}
-      {viewingRule && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setViewingRule(null)}>
-          <div className="soft-card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+      <AnimatedModal isOpen={!!viewingRule} onClose={() => setViewingRule(null)}>
+            {viewingRule && <>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-[#1A1A2E]">规则详情</h2>
               <button onClick={() => setViewingRule(null)} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
@@ -482,14 +500,11 @@ export default function DisciplineSystem() {
               )}
             </div>
             <button onClick={() => { setEditingRule(viewingRule); setViewingRule(null); }} className="w-full btn-secondary mt-4">编辑此规则</button>
-          </div>
-        </div>
-      )}
+            </>}
+      </AnimatedModal>
 
       {/* 添加规则弹窗 */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
-          <div className="soft-card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+      <AnimatedModal isOpen={showAddModal} onClose={() => setShowAddModal(false)}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-[#1A1A2E]">添加规则</h2>
               <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
@@ -517,14 +532,10 @@ export default function DisciplineSystem() {
               </div>
               <button onClick={saveRule} className="w-full btn-primary">保存规则</button>
             </div>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
 
       {/* 规则模板弹窗 */}
-      {showTemplateModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowTemplateModal(false)}>
-          <div className="soft-card w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <AnimatedModal isOpen={showTemplateModal} onClose={() => setShowTemplateModal(false)} maxWidth="max-w-2xl" className="max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-[#1A1A2E]">选择规则模板</h2>
               <button onClick={() => setShowTemplateModal(false)} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
@@ -557,14 +568,11 @@ export default function DisciplineSystem() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
 
       {/* 编辑规则弹窗 */}
-      {editingRule && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setEditingRule(null)}>
-          <div className="soft-card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+      <AnimatedModal isOpen={!!editingRule} onClose={() => setEditingRule(null)}>
+            {editingRule && <>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-[#1A1A2E]">编辑规则</h2>
               <button onClick={() => setEditingRule(null)} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
@@ -592,9 +600,8 @@ export default function DisciplineSystem() {
               </div>
               <button onClick={updateRule} className="w-full btn-primary">更新规则</button>
             </div>
-          </div>
-        </div>
-      )}
+            </>}
+      </AnimatedModal>
     </div>
   );
 }

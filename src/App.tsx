@@ -10,7 +10,6 @@ import DisciplineSystem from "@/pages/DisciplineSystem";
 import AIAnalysis from "@/pages/AIAnalysis";
 import ClearData from "@/pages/ClearData";
 import Settings from "@/pages/Settings";
-import { Toaster } from 'sonner';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function App() {

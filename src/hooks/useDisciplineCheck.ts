@@ -1,4 +1,5 @@
 import { TradeRecord, DisciplineRule, ViolationRecord, RuleCondition } from '../types';
+import { loadTradesFromStorage } from '../lib/utils';
 
 function loadRules(): DisciplineRule[] {
   try {
@@ -8,19 +9,6 @@ function loadRules(): DisciplineRule[] {
       if (key === 'timestamp' || key === 'createdAt' || key === 'updatedAt') {
         return new Date(value);
       }
-      return value;
-    });
-  } catch {
-    return [];
-  }
-}
-
-function loadTrades(): TradeRecord[] {
-  try {
-    const data = localStorage.getItem('trades');
-    if (!data) return [];
-    return JSON.parse(data, (key, value) => {
-      if (key === 'timestamp') return new Date(value);
       return value;
     });
   } catch {
@@ -118,7 +106,7 @@ function checkCondition(condition: RuleCondition, trade: TradeRecord, allTrades:
 
 export function checkTradeViolations(trade: TradeRecord): ViolationRecord[] {
   const rules = loadRules().filter(r => r.enabled);
-  const allTrades = loadTrades();
+  const allTrades = loadTradesFromStorage();
   const violations: ViolationRecord[] = [];
 
   rules.forEach(rule => {
@@ -160,7 +148,7 @@ export function loadViolations(): ViolationRecord[] {
 
 export function getViolationStats(): { month: string, compliant: number, violated: number }[] {
   const violations = loadViolations();
-  const trades = loadTrades();
+  const trades = loadTradesFromStorage();
   const months: { [key: string]: { compliant: number, violated: number } } = {};
   const now = new Date();
 

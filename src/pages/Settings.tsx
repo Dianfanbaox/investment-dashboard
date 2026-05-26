@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
+import AnimatedModal from '@/components/AnimatedModal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 const COLORS = ['#FF8E6E', '#5E5CE6', '#34C759', '#9CA3AF'];
@@ -114,7 +115,14 @@ export default function Settings() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const clearAllData = () => {
-    localStorage.clear();
+    const appKeys = [
+      'trades', 'stockPoolStocks', 'disciplineRules',
+      'violationRecords', 'tradingInsights',
+      'ai_api_key', 'ai_api_url', 'ai_model', 'user_nickname'
+    ];
+    appKeys.forEach(key => localStorage.removeItem(key));
+    // 清除所有持仓价格缓存
+    Object.keys(localStorage).filter(k => k.startsWith('position_price_')).forEach(k => localStorage.removeItem(k));
     setShowClearConfirm(false);
     toast.success('所有数据已清空');
     window.location.reload();
@@ -378,9 +386,7 @@ export default function Settings() {
       )}
 
       {/* 清空数据确认弹窗 */}
-      {showClearConfirm && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowClearConfirm(false)}>
-          <div className="soft-card w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+      <AnimatedModal isOpen={showClearConfirm} onClose={() => setShowClearConfirm(false)} maxWidth="max-w-sm">
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-[#FF3B30]/10 flex items-center justify-center mx-auto mb-4">
                 <i className="fa-solid fa-exclamation-triangle text-[#FF3B30] text-2xl"></i>
@@ -392,9 +398,7 @@ export default function Settings() {
                 <button onClick={clearAllData} className="flex-1 py-3 px-6 rounded-2xl bg-[#FF3B30] text-white font-medium hover:bg-[#FF3B30]/90 transition-colors">确认清空</button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
     </div>
   );
 }

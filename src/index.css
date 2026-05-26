@@ -451,3 +451,33 @@ body {
 .decor-emoji {
   font-size: 1.5rem;
 }
+
+/* 表单验证样式 */
+.input-error {
+  border-color: #FF3B30 !important;
+  box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.1), inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.field-error {
+  color: #FF3B30;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* 按钮按下微交互 */
+.btn-primary:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 1px 6px rgba(255, 142, 110, 0.2);
+  transition: transform 0.05s ease;
+}
+
+.btn-secondary:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 1px 6px rgba(124, 77, 255, 0.2);
+  transition: transform 0.05s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+  transition: transform 0.05s ease;
+}

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { checkTradeViolations, saveViolationRecord } from '@/hooks/useDisciplineCheck';
 import { tradesToCSV, downloadCSV, parseCSV, generateCSVTemplate } from '@/lib/csvUtils';
 import { getQuote, detectMarket } from '@/services/marketService';
+import AnimatedModal from '@/components/AnimatedModal';
 
 export const calculateHoldings = (trades: TradeRecord[]) => {
   const holdings: { [stockCode: string]: { stockCode: string, stockName: string, lots: { price: number; quantity: number }[] } } = {};
@@ -51,6 +52,17 @@ export default function TradeRecords() {
   const [isAddTradeOpen, setIsAddTradeOpen] = useState(false);
   const [formData, setFormData] = useState({ type: 'buy', price: 0, quantity: 0, fee: 0, timestamp: new Date(), tags: '', notes: '', stockCode: '', stockName: '' });
   const [isFetchingQuote, setIsFetchingQuote] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const validateTradeForm = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.stockCode) errors.stockCode = '请输入股票代码';
+    if (!formData.stockName) errors.stockName = '请输入股票名称';
+    if (!formData.price || formData.price <= 0) errors.price = '请输入有效价格';
+    if (!formData.quantity || formData.quantity <= 0) errors.quantity = '请输入有效数量';
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleStockCodeBlur = async (code: string) => {
     if (!code.trim()) return;
@@ -72,6 +84,7 @@ export default function TradeRecords() {
         ...prev,
         stockCode: code.toUpperCase(),
       }));
+      toast.warning(`无法获取 ${code} 的行情数据，请手动填写名称和价格`);
     }
     setIsFetchingQuote(false);
   };
@@ -403,9 +416,7 @@ export default function TradeRecords() {
       </div>
 
       {/* 添加交易弹窗 */}
-      {isAddTradeOpen && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setIsAddTradeOpen(false)}>
-          <div className="soft-card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+      <AnimatedModal isOpen={isAddTradeOpen} onClose={() => setIsAddTradeOpen(false)}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-[#1A1A2E]">添加交易</h2>
               <button onClick={() => setIsAddTradeOpen(false)} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
@@ -427,28 +438,32 @@ export default function TradeRecords() {
                   <div className="relative">
                     <input
                       type="text"
-                      className="input-soft w-full pr-10"
+                      className={`input-soft w-full pr-10 ${formErrors.stockCode ? 'input-error' : ''}`}
                       placeholder="输入代码后自动获取价格"
                       value={formData.stockCode}
-                      onChange={(e) => setFormData({ ...formData, stockCode: e.target.value })}
-                      onBlur={(e) => handleStockCodeBlur(e.target.value)}
+                      onChange={(e) => { setFormData({ ...formData, stockCode: e.target.value }); if (formErrors.stockCode) setFormErrors(prev => { const next = { ...prev }; delete next.stockCode; return next; }); }}
+                      onBlur={(e) => { handleStockCodeBlur(e.target.value); if (formErrors.stockCode && e.target.value) setFormErrors(prev => { const next = { ...prev }; delete next.stockCode; return next; }); }}
                     />
                     {isFetchingQuote && (
                       <i className="fa-solid fa-spinner fa-spin absolute right-3 top-1/2 -translate-y-1/2 text-[#FF8E6E]"></i>
                     )}
                   </div>
+                  {formErrors.stockCode && <p className="field-error">{formErrors.stockCode}</p>}
                 </div>
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">股票名称</label>
-                  <input type="text" className="input-soft w-full" placeholder="如 苹果公司" value={formData.stockName} onChange={(e) => setFormData({ ...formData, stockName: e.target.value })} />
+                  <input type="text" className={`input-soft w-full ${formErrors.stockName ? 'input-error' : ''}`} placeholder="如 苹果公司" value={formData.stockName} onChange={(e) => { setFormData({ ...formData, stockName: e.target.value }); if (formErrors.stockName) setFormErrors(prev => { const next = { ...prev }; delete next.stockName; return next; }); }} />
+                  {formErrors.stockName && <p className="field-error">{formErrors.stockName}</p>}
                 </div>
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">价格</label>
-                  <input type="number" className="input-soft w-full" placeholder="0.00" value={formData.price || ''} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })} />
+                  <input type="number" className={`input-soft w-full ${formErrors.price ? 'input-error' : ''}`} placeholder="0.00" value={formData.price || ''} onChange={(e) => { setFormData({ ...formData, price: parseFloat(e.target.value) }); if (formErrors.price) setFormErrors(prev => { const next = { ...prev }; delete next.price; return next; }); }} />
+                  {formErrors.price && <p className="field-error">{formErrors.price}</p>}
                 </div>
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">数量</label>
-                  <input type="number" className="input-soft w-full" placeholder="0" value={formData.quantity || ''} onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) })} />
+                  <input type="number" className={`input-soft w-full ${formErrors.quantity ? 'input-error' : ''}`} placeholder="0" value={formData.quantity || ''} onChange={(e) => { setFormData({ ...formData, quantity: parseInt(e.target.value) }); if (formErrors.quantity) setFormErrors(prev => { const next = { ...prev }; delete next.quantity; return next; }); }} />
+                  {formErrors.quantity && <p className="field-error">{formErrors.quantity}</p>}
                 </div>
               </div>
               <div>
@@ -456,16 +471,11 @@ export default function TradeRecords() {
                 <textarea className="input-soft w-full h-20 resize-none" placeholder="交易原因..." value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })}></textarea>
               </div>
               <button onClick={() => {
-                if (!formData.stockCode || !formData.stockName || !formData.price || !formData.quantity) {
-                  toast.error('请填写完整信息');
-                  return;
-                }
+                if (!validateTradeForm()) return;
                 handleAddTrade({ ...formData, timestamp: formData.timestamp });
               }} className="w-full btn-primary">保存交易</button>
             </div>
-          </div>
-        </div>
-      )}
+      </AnimatedModal>
     </div>
   );
 }

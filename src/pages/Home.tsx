@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { TradeRecord, DisciplineRule, Position } from '@/types';
 import { usePositions } from '@/hooks/usePositions';
+import { loadTradesFromStorage } from '@/lib/utils';
 
 // 从localStorage获取交易数据
 const getRecentTrades = (): (TradeRecord & { typeLabel: string; date: string; profit: number })[] => {
@@ -37,11 +38,13 @@ const getRecentTrades = (): (TradeRecord & { typeLabel: string; date: string; pr
 };
 
 // 计算收益走势
-const calculatePerformanceData = (trades: TradeRecord[]): { name: string, value: number, income: number }[] => {
+const calculatePerformanceData = (trades: TradeRecord[], timeRange: '1M' | '3M' | '6M' | '1Y' = '6M'): { name: string, value: number, income: number }[] => {
+  const monthSpanMap = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12 };
+  const monthSpan = monthSpanMap[timeRange];
   const periods: { [key: string]: { value: number, income: number } } = {};
   const now = new Date();
 
-  for (let i = 5; i >= 0; i--) {
+  for (let i = monthSpan - 1; i >= 0; i--) {
     const date = new Date(now);
     date.setMonth(date.getMonth() - i);
     const name = `${date.getMonth() + 1}月`;
@@ -113,23 +116,16 @@ export default function Dashboard() {
   const { positions, totalValue, totalCost, totalFloatingPnL, totalFloatingPnLPct, totalRealizedPnL } = usePositions();
 
   useEffect(() => {
-    const loadTrades = () => {
-      const savedTrades = localStorage.getItem('trades');
-      return savedTrades ? JSON.parse(savedTrades, (key, value) => {
-        if (key === 'timestamp') return new Date(value);
-        return value;
-      }) : [];
-    };
-    setTrades(loadTrades());
+    setTrades(loadTradesFromStorage());
     const handleStorageChange = () => {
-      setTrades(loadTrades());
+      setTrades(loadTradesFromStorage());
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const recentTradesData = getRecentTrades();
-  const performanceData = calculatePerformanceData(trades);
+  const performanceData = calculatePerformanceData(trades, timeRange);
   const disciplineScoreData = calculateDisciplineScoreData(positions);
   const disciplineScore = Math.round(disciplineScoreData.reduce((sum, item) => sum + item.score, 0) / Math.max(1, disciplineScoreData.length));
 
