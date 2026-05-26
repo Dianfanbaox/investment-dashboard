@@ -5,15 +5,26 @@ interface SidebarProps {
   toggleSidebar: () => void;
 }
 
+// 图标映射
+const iconMap: { [key: string]: string } = {
+  '仪表盘': '/仪表盘图标_pixian_ai.png',
+  '交易记录': '/交易记录图标_pixian_ai.png',
+  '股票池': '/股票池图标_pixian_ai.png',
+  '交易心得': '/交易心得图标_pixian_ai.png',
+  '交易纪律': '/交易纪律图标_pixian_ai.png',
+  'AI分析': '/AI分析图标_pixian_ai.png',
+  '设置': '/设置图标_pixian_ai.png',
+};
+
 export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
   const navItems = [
-    { path: '/', label: '仪表盘', icon: 'fa-chart-pie' },
-    { path: '/trades', label: '交易记录', icon: 'fa-exchange-alt' },
-    { path: '/stock-pool', label: '股票池', icon: 'fa-layer-group' },
-    { path: '/insights', label: '交易心得', icon: 'fa-lightbulb' },
-    { path: '/discipline', label: '交易纪律', icon: 'fa-shield-halved' },
-    { path: '/ai-analysis', label: 'AI分析', icon: 'fa-robot' },
-    { path: '/settings', label: '设置', icon: 'fa-gear' },
+    { path: '/', label: '仪表盘' },
+    { path: '/trades', label: '交易记录' },
+    { path: '/stock-pool', label: '股票池' },
+    { path: '/insights', label: '交易心得' },
+    { path: '/discipline', label: '交易纪律' },
+    { path: '/ai-analysis', label: 'AI分析' },
+    { path: '/settings', label: '设置' },
   ];
 
   return (
@@ -25,8 +36,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
     >
       {/* Logo区域 */}
       <div className="h-16 flex items-center px-5 border-b border-black/5">
-        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FF8E6E, #FFB299)' }}>
-          <i className="fa-solid fa-chart-line text-white text-sm"></i>
+        <div className="w-10 h-10 rounded-full overflow-hidden">
+          <img src="/ip-characters.png" alt="Logo" className="w-full h-full object-contain" />
         </div>
         {!isCollapsed && (
           <div className="ml-3">
@@ -37,8 +48,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
       </div>
 
       {/* 导航菜单 */}
-      <nav className="flex-1 py-4 px-3 overflow-y-auto">
-        <ul className="space-y-1.5">
+      <nav className="flex-1 py-6 px-3 overflow-y-auto">
+        <ul className="space-y-3">
           {navItems.map((item) => (
             <li key={item.path}>
               <NavLink
@@ -52,8 +63,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
                   }
                 }}
               >
-                <i className={`fa-solid ${item.icon} ${isCollapsed ? 'text-lg' : 'mr-3 text-sm'}`}></i>
-                {!isCollapsed && <span>{item.label}</span>}
+                <img
+                  src={iconMap[item.label]}
+                  alt={item.label}
+                  className={`${isCollapsed ? 'w-12 h-12' : 'w-12 h-12 mr-3'}`}
+                  style={{ objectFit: 'contain' }}
+                />
+                {!isCollapsed && <span className="text-sm">{item.label}</span>}
               </NavLink>
             </li>
           ))}
@@ -63,14 +79,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
       {/* 底部小角色装饰 */}
       {!isCollapsed && (
         <div className="px-5 pb-4 flex justify-center">
-          <div className="flex items-end gap-1 opacity-60">
-            <div className="w-6 h-6 rounded-full" style={{ background: '#FFF9C4' }}>
-              <div className="w-2 h-3 rounded-full absolute -top-1 left-0.5" style={{ background: '#FFF9C4' }} />
-              <div className="w-2 h-3 rounded-full absolute -top-1 right-0.5" style={{ background: '#FFF9C4' }} />
-            </div>
-            <div className="w-7 h-7 rounded-full" style={{ background: '#FFFFFF', border: '1px solid #EEE' }} />
-            <div className="w-6 h-6 rounded-full" style={{ background: '#FFFFFF', border: '1px solid #EEE' }} />
-          </div>
+          <img src="/ip-characters.png" alt="" className="h-12 opacity-60" />
         </div>
       )}
     </div>

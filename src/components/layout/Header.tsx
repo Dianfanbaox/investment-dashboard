@@ -40,7 +40,7 @@ export default function Header({ toggleSidebar, toggleMobileMenu, isMobile }: He
         {/* 头像 */}
         <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm">
           <img
-            src="https://space.coze.cn/api/coze_space/gen_image?image_size=square&prompt=User%20avatar%2C%20professional%20investor%2C%20portrait%2C%20simple%20style&sign=c30d19f3a99524cee2627efedcc7c0a6"
+            src="/avatar.jpg"
             alt="用户头像"
             className="w-full h-full object-cover"
           />

@@ -417,7 +417,7 @@ export default function Dashboard() {
               </div>
               <div className="w-full flex justify-between items-end mt-4">
                 <img
-                  src="/chikawa-characters.jpg"
+                  src="/tips-character.png"
                   alt=""
                   className="h-24 w-auto object-contain"
                 />
