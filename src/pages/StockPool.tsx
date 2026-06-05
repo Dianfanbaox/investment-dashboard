@@ -1,12 +1,42 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Stock, TradeRecord } from '@/types';
+import { Stock } from '@/types';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { toast } from 'sonner';
 import { getQuote, detectMarket } from '@/services/marketService';
 import { confirmDelete } from '@/lib/utils';
 import AnimatedModal from '@/components/AnimatedModal';
+import AnimatedNumber from '@/components/AnimatedNumber';
+import PageHeader from '@/components/PageHeader';
+import MotionTabs from '@/components/MotionTabs';
+import { Button } from '@/components/Button';
+import { AnimatePresence, motion } from 'framer-motion';
 
-const COLORS = ['#FF8E6E', '#5E5CE6', '#34C759', '#5856D6', '#FFB299', '#7B78E8'];
+const researchStatusMeta: Record<NonNullable<Stock['researchStatus']>, { label: string; tone: string; dot: string }> = {
+  new: { label: '待研究', tone: 'bg-[#F8F9FC] text-[#6B7280]', dot: '#9CA3AF' },
+  researching: { label: '研究中', tone: 'bg-[#5E5CE6]/10 text-[#5E5CE6]', dot: '#5E5CE6' },
+  watching: { label: '观察中', tone: 'bg-[#FF8E6E]/10 text-[#FF8E6E]', dot: '#FF8E6E' },
+  ready: { label: '可买入', tone: 'bg-[#34C759]/10 text-[#34C759]', dot: '#34C759' },
+  paused: { label: '已搁置', tone: 'bg-[#9CA3AF]/10 text-[#6B7280]', dot: '#9CA3AF' },
+};
+
+const initialStockForm = {
+  code: '',
+  name: '',
+  market: 'us' as const,
+  price: 0,
+  tags: '',
+  notes: '',
+  poolId: '1',
+  researchStatus: 'new' as NonNullable<Stock['researchStatus']>,
+  thesis: '',
+  targetPrice: 0,
+  stopLossPrice: 0,
+  nextReviewDate: '',
+};
+
+const getResearchStatus = (stock: Stock): NonNullable<Stock['researchStatus']> => {
+  return stock.researchStatus && stock.researchStatus in researchStatusMeta ? stock.researchStatus : 'new';
+};
 
 interface Pool {
   id: string;
@@ -24,7 +54,7 @@ export default function StockPool() {
   const [stocks, setStocks] = useState<Stock[]>(getStocksFromLocalStorage);
   const [selectedPool, setSelectedPool] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [formData, setFormData] = useState({ code: '', name: '', market: 'us' as const, price: 0, tags: '', notes: '', poolId: '1' });
+  const [formData, setFormData] = useState(initialStockForm);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const validateStockForm = () => {
@@ -54,7 +84,30 @@ export default function StockPool() {
   }, [stocks]);
 
   const currentPool = pools.find(p => p.id === selectedPool) || pools[0];
-  const chartData = currentPool.stocks.slice(0, 6).map((s, i) => ({ name: s.code, value: s.price * 10, fill: COLORS[i % COLORS.length] }));
+  const queueStats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dueReviews = stocks.filter(stock => {
+      if (!stock.nextReviewDate) return false;
+      return new Date(stock.nextReviewDate) <= today;
+    }).length;
+
+    return {
+      dueReviews,
+      ready: stocks.filter(stock => getResearchStatus(stock) === 'ready').length,
+      researching: stocks.filter(stock => getResearchStatus(stock) === 'researching').length,
+      watching: stocks.filter(stock => getResearchStatus(stock) === 'watching').length,
+    };
+  }, [stocks]);
+
+  const chartData = Object.entries(researchStatusMeta)
+    .map(([status, meta]) => ({
+      name: meta.label,
+      value: currentPool.stocks.filter(stock => getResearchStatus(stock) === status).length,
+      fill: meta.dot,
+    }))
+    .filter(item => item.value > 0);
 
   const handleAddStock = () => {
     if (!validateStockForm()) return;
@@ -68,12 +121,17 @@ export default function StockPool() {
       changePercent: 0,
       tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       notes: formData.notes,
+      researchStatus: formData.researchStatus,
+      thesis: formData.thesis,
+      targetPrice: formData.targetPrice || undefined,
+      stopLossPrice: formData.stopLossPrice || undefined,
+      nextReviewDate: formData.nextReviewDate || undefined,
       addedAt: new Date(),
       poolId: formData.poolId,
     };
     setStocks([...stocks, newStock]);
     setShowAddModal(false);
-    setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '', poolId: '1' });
+    setFormData(initialStockForm);
     toast.success('股票已添加');
   };
 
@@ -87,11 +145,16 @@ export default function StockPool() {
       price: formData.price || s.price,
       tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : s.tags || [],
       notes: formData.notes,
+      researchStatus: formData.researchStatus,
+      thesis: formData.thesis,
+      targetPrice: formData.targetPrice || undefined,
+      stopLossPrice: formData.stopLossPrice || undefined,
+      nextReviewDate: formData.nextReviewDate || undefined,
       poolId: formData.poolId,
     } : s));
     setIsEditing(null);
     setShowAddModal(false);
-    setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '', poolId: '1' });
+    setFormData(initialStockForm);
     toast.success('股票已更新');
   };
 
@@ -205,6 +268,11 @@ export default function StockPool() {
       tags: stock.tags?.join(', ') || '',
       notes: stock.notes || '',
       poolId: stock.poolId || '1',
+      researchStatus: getResearchStatus(stock),
+      thesis: stock.thesis || '',
+      targetPrice: stock.targetPrice || 0,
+      stopLossPrice: stock.stopLossPrice || 0,
+      nextReviewDate: stock.nextReviewDate || '',
     });
     setShowAddModal(true);
   };
@@ -237,6 +305,8 @@ export default function StockPool() {
         changePercent: quote?.changePercent || 0,
         tags: [],
         notes: '',
+        researchStatus: 'new',
+        thesis: '',
         addedAt: new Date(),
         poolId: batchPoolId,
       });
@@ -283,6 +353,8 @@ export default function StockPool() {
             changePercent: 0,
             tags: cols[4] ? cols[4].split('|').map(t => t.trim()).filter(Boolean) : [],
             notes: cols[5] || '',
+            researchStatus: 'new',
+            thesis: '',
             addedAt: new Date(),
             poolId: batchPoolId,
           });
@@ -303,39 +375,44 @@ export default function StockPool() {
 
   return (
     <div className="space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 md:gap-3">
-          <img src="/ip-characters.png" alt="" className="h-8 md:h-12 opacity-90" />
-          <div>
-            <h1 className="text-2xl font-bold text-[#1A1A2E]">股票池</h1>
-            <p className="text-sm text-[#9CA3AF] mt-1">管理您的自选股票</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
-          <button onClick={() => { setIsEditing(null); setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '', poolId: '1' }); setShowAddModal(true); }} className="btn-primary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
-            <i className="fa-solid fa-plus"></i>
-            <span>添加</span>
-          </button>
-          <button onClick={() => setShowBatchModal(true)} className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
-            <i className="fa-solid fa-layer-group"></i>
-            <span className="hidden sm:inline">批量</span>
-          </button>
-          <button onClick={handleRefreshPrices} disabled={isRefreshing} className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 disabled:opacity-50">
-            <i className={`fa-solid ${isRefreshing ? 'fa-spinner fa-spin' : 'fa-refresh'}`}></i>
-            <span className="hidden sm:inline">{isRefreshing ? '刷新中' : '刷新'}</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader title="股票池" subtitle="跟踪候选标的、买入理由和复盘节奏" iconSrc="/股票池图标_pixian_ai.png">
+        <button onClick={() => setShowBatchModal(true)} className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors flex items-center justify-center" title="批量添加">
+          <i className="fa-solid fa-layer-group text-sm"></i>
+        </button>
+        <button onClick={handleRefreshPrices} disabled={isRefreshing} className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors flex items-center justify-center disabled:opacity-40" title="刷新价格">
+          <i className={`fa-solid ${isRefreshing ? 'fa-spinner fa-spin' : 'fa-refresh'} text-sm`}></i>
+        </button>
+        <button onClick={() => { setIsEditing(null); setFormData(initialStockForm); setShowAddModal(true); }} className="h-9 px-4 rounded-xl bg-white text-[#FF8E6E] font-medium text-sm hover:bg-white/90 transition-colors flex items-center gap-1.5">
+          <i className="fa-solid fa-plus text-xs"></i>
+          <span>添加</span>
+        </button>
+      </PageHeader>
 
       {/* Tab切换 */}
-      <div className="flex gap-2">
-        {pools.map(pool => (
-          <button key={pool.id} onClick={() => setSelectedPool(pool.id)}
-            className={`px-5 py-2.5 rounded-2xl text-sm font-medium transition-all ${selectedPool === pool.id ? 'bg-gradient-to-r from-[#FF8E6E] to-[#FFB299] text-white shadow-lg' : 'bg-white/80 text-[#6B7280] hover:bg-black/5'}`}>
-            {pool.name} ({pool.stocks.length})
-          </button>
-        ))}
+      <MotionTabs
+        tabs={pools.map(pool => ({ id: pool.id, label: pool.name, count: pool.stocks.length }))}
+        activeId={selectedPool}
+        onChange={setSelectedPool}
+        layoutId="stock-pool-tabs"
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="soft-card p-4">
+          <p className="text-xs text-[#9CA3AF]">待复盘</p>
+          <p className="mt-1 text-2xl font-bold text-[#FF8E6E]"><AnimatedNumber value={queueStats.dueReviews} /></p>
+        </div>
+        <div className="soft-card p-4">
+          <p className="text-xs text-[#9CA3AF]">可买入</p>
+          <p className="mt-1 text-2xl font-bold text-[#34C759]"><AnimatedNumber value={queueStats.ready} /></p>
+        </div>
+        <div className="soft-card p-4">
+          <p className="text-xs text-[#9CA3AF]">研究中</p>
+          <p className="mt-1 text-2xl font-bold text-[#5E5CE6]"><AnimatedNumber value={queueStats.researching} /></p>
+        </div>
+        <div className="soft-card p-4">
+          <p className="text-xs text-[#9CA3AF]">观察中</p>
+          <p className="mt-1 text-2xl font-bold text-[#1A1A2E]"><AnimatedNumber value={queueStats.watching} /></p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -347,49 +424,105 @@ export default function StockPool() {
               <p className="text-sm text-[#9CA3AF]">暂无股票</p>
             </div>
           ) : (
-            currentPool.stocks.map((stock, index) => (
-              <div key={stock.id} className="soft-card p-5 flex items-center justify-between card-enter">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-white ${index === 0 ? 'bg-gradient-to-br from-[#FFD700] to-[#FFA500]' : index === 1 ? 'bg-gradient-to-br from-[#C0C0C0] to-[#A0A0A0]' : index === 2 ? 'bg-gradient-to-br from-[#CD7F32] to-[#B8860B]' : 'bg-gradient-to-br from-[#5E5CE6] to-[#7B78E8]'}`}>
-                    {index + 1}
+            <AnimatePresence mode="popLayout">
+            {currentPool.stocks.map((stock, index) => {
+              const status = getResearchStatus(stock);
+              const statusMeta = researchStatusMeta[status];
+              const price = stock.price || 0;
+              const targetGap = price > 0 && stock.targetPrice ? ((stock.targetPrice - price) / price) * 100 : null;
+              const stopGap = price > 0 && stock.stopLossPrice ? ((stock.stopLossPrice - price) / price) * 100 : null;
+              const isReviewDue = stock.nextReviewDate ? new Date(stock.nextReviewDate) <= new Date(new Date().setHours(0, 0, 0, 0)) : false;
+
+              return (
+                <motion.article
+                  key={stock.id}
+                  layout
+                  initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.96 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="soft-card p-5 card-enter"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex items-start gap-4">
+                      <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center font-bold text-white ${index === 0 ? 'bg-gradient-to-br from-[#FFD700] to-[#FFA500]' : index === 1 ? 'bg-gradient-to-br from-[#C0C0C0] to-[#A0A0A0]' : index === 2 ? 'bg-gradient-to-br from-[#CD7F32] to-[#B8860B]' : 'bg-gradient-to-br from-[#5E5CE6] to-[#7B78E8]'}`}>
+                        {index + 1}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-base font-semibold text-[#1A1A2E]">{stock.name}</p>
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusMeta.tone}`}>{statusMeta.label}</span>
+                          {isReviewDue && <span className="rounded-full bg-[#FF3B30]/10 px-2.5 py-1 text-xs font-medium text-[#FF3B30]">待复盘</span>}
+                        </div>
+                        <p className="mt-1 text-sm text-[#9CA3AF]">{stock.code}</p>
+                        <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-[#6B7280]">
+                          {stock.thesis || stock.notes || '还没有写买入/观察理由'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 items-start justify-between gap-4 sm:text-right">
+                      <div>
+                        <p className="text-lg font-bold text-[#1A1A2E]">¥{price.toFixed(2)}</p>
+                        <p className={`text-sm ${(stock.changePercent || 0) >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
+                          {(stock.changePercent || 0) >= 0 ? '+' : ''}{(stock.changePercent || 0).toFixed(2)}%
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => openEditModal(stock)} className="p-2.5 rounded-xl bg-[#F8F9FC] hover:bg-black/5 transition-colors" aria-label={`编辑 ${stock.name}`}>
+                          <i className="fa-solid fa-edit text-[#5E5CE6]"></i>
+                        </button>
+                        <button onClick={() => handleDeleteStock(stock.id)} className="p-2.5 rounded-xl bg-[#F8F9FC] hover:bg-black/5 transition-colors" aria-label={`删除 ${stock.name}`}>
+                          <i className="fa-solid fa-trash text-[#FF3B30]"></i>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-base font-semibold text-[#1A1A2E]">{stock.name}</p>
-                    <p className="text-sm text-[#9CA3AF]">{stock.code}</p>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+                    <div className="rounded-2xl bg-[#F8F9FC] p-3">
+                      <p className="text-xs text-[#9CA3AF]">目标价</p>
+                      <p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{stock.targetPrice ? `¥${stock.targetPrice.toFixed(2)}` : '未设置'}</p>
+                      {targetGap !== null && <p className={`mt-1 text-xs ${targetGap >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>{targetGap >= 0 ? '+' : ''}{targetGap.toFixed(1)}%</p>}
+                    </div>
+                    <div className="rounded-2xl bg-[#F8F9FC] p-3">
+                      <p className="text-xs text-[#9CA3AF]">止损价</p>
+                      <p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{stock.stopLossPrice ? `¥${stock.stopLossPrice.toFixed(2)}` : '未设置'}</p>
+                      {stopGap !== null && <p className={`mt-1 text-xs ${stopGap <= 0 ? 'text-[#FF8E6E]' : 'text-[#FF3B30]'}`}>{stopGap >= 0 ? '+' : ''}{stopGap.toFixed(1)}%</p>}
+                    </div>
+                    <div className="rounded-2xl bg-[#F8F9FC] p-3">
+                      <p className="text-xs text-[#9CA3AF]">下次复盘</p>
+                      <p className={`mt-1 text-sm font-semibold ${isReviewDue ? 'text-[#FF3B30]' : 'text-[#1A1A2E]'}`}>{stock.nextReviewDate || '未安排'}</p>
+                    </div>
+                    <div className="rounded-2xl bg-[#F8F9FC] p-3">
+                      <p className="text-xs text-[#9CA3AF]">标签</p>
+                      <p className="mt-1 truncate text-sm font-semibold text-[#1A1A2E]">{stock.tags?.length ? stock.tags.join(' / ') : '未设置'}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-[#1A1A2E]">¥{stock.price?.toFixed(2) || '0.00'}</p>
-                  <p className={`text-sm ${(stock.changePercent || 0) >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
-                    {(stock.changePercent || 0) >= 0 ? '+' : ''}{(stock.changePercent || 0).toFixed(2)}%
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => openEditModal(stock)} className="p-2.5 rounded-xl bg-[#F8F9FC] hover:bg-black/5 transition-colors">
-                    <i className="fa-solid fa-edit text-[#5E5CE6]"></i>
-                  </button>
-                  <button onClick={() => handleDeleteStock(stock.id)} className="p-2.5 rounded-xl bg-[#F8F9FC] hover:bg-black/5 transition-colors">
-                    <i className="fa-solid fa-trash text-[#FF3B30]"></i>
-                  </button>
-                </div>
-              </div>
-            ))
+                </motion.article>
+              );
+            })}
+            </AnimatePresence>
           )}
         </div>
 
         {/* 右侧统计 */}
         <div className="space-y-4">
           <div className="soft-card p-6">
-            <h3 className="text-sm font-semibold text-[#1A1A2E] mb-4">股票分布</h3>
+            <h3 className="text-sm font-semibold text-[#1A1A2E] mb-4">研究进度分布</h3>
             <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value">
-                    {chartData.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: 'white', border: 'none', borderRadius: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
-                </PieChart>
-              </ResponsiveContainer>
+              {chartData.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-[#9CA3AF]">暂无队列数据</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value">
+                      {chartData.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: 'white', border: 'none', borderRadius: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
             <div className="flex flex-wrap gap-3 mt-4">
               {chartData.map((item, i) => (
@@ -404,7 +537,7 @@ export default function StockPool() {
           <div className="soft-card p-6">
             <h3 className="text-sm font-semibold text-[#1A1A2E] mb-4">快速操作</h3>
             <div className="space-y-3">
-              <button onClick={() => { setIsEditing(null); setFormData({ code: '', name: '', market: 'us', price: 0, tags: '', notes: '' }); setShowAddModal(true); }} className="w-full p-4 bg-[#F8F9FC] rounded-2xl flex items-center gap-3 hover:bg-black/5 transition-colors">
+              <button onClick={() => { setIsEditing(null); setFormData(initialStockForm); setShowAddModal(true); }} className="w-full p-4 bg-[#F8F9FC] rounded-2xl flex items-center gap-3 hover:bg-black/5 transition-colors">
                 <div className="w-10 h-10 rounded-xl bg-[#FF8E6E]/10 flex items-center justify-center">
                   <i className="fa-solid fa-plus text-[#FF8E6E]"></i>
                 </div>
@@ -472,7 +605,7 @@ export default function StockPool() {
       </AnimatedModal>
 
       {/* 添加/编辑股票弹窗 */}
-      <AnimatedModal isOpen={showAddModal} onClose={() => { setShowAddModal(false); setIsEditing(null); }}>
+      <AnimatedModal isOpen={showAddModal} onClose={() => { setShowAddModal(false); setIsEditing(null); }} maxWidth="max-w-2xl" className="max-h-[86vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-[#1A1A2E]">{isEditing ? '编辑股票' : '添加股票'}</h2>
               <button onClick={() => { setShowAddModal(false); setIsEditing(null); }} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
@@ -480,7 +613,7 @@ export default function StockPool() {
               </button>
             </div>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">股票代码 *</label>
                   <div className="relative">
@@ -504,7 +637,7 @@ export default function StockPool() {
                   {formErrors.name && <p className="field-error">{formErrors.name}</p>}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">市场</label>
                   <select className="input-soft w-full" value={formData.market} onChange={(e) => setFormData({ ...formData, market: e.target.value as any })}>
@@ -519,7 +652,7 @@ export default function StockPool() {
                   <input type="number" className="input-soft w-full" placeholder="自动获取或手动输入" value={formData.price || ''} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-[#6B7280] mb-1 block">股票池</label>
                   <select className="input-soft w-full" value={formData.poolId} onChange={(e) => setFormData({ ...formData, poolId: e.target.value })}>
@@ -533,12 +666,57 @@ export default function StockPool() {
                 </div>
               </div>
               <div>
+                <label className="text-sm text-[#6B7280] mb-2 block">研究状态</label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {(Object.keys(researchStatusMeta) as NonNullable<Stock['researchStatus']>[]).map(status => (
+                    <button
+                      key={status}
+                      onClick={() => setFormData({ ...formData, researchStatus: status })}
+                      className={`rounded-2xl px-3 py-2 text-sm font-medium transition-all ${
+                        formData.researchStatus === status
+                          ? 'bg-gradient-to-r from-[#FF8E6E] to-[#FFB299] text-white shadow-md'
+                          : 'bg-[#F8F9FC] text-[#6B7280] hover:bg-black/5'
+                      }`}
+                    >
+                      {researchStatusMeta[status].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm text-[#6B7280] mb-1 block">目标价</label>
+                  <input type="number" className="input-soft w-full" placeholder="上涨目标" value={formData.targetPrice || ''} onChange={(e) => setFormData({ ...formData, targetPrice: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div>
+                  <label className="text-sm text-[#6B7280] mb-1 block">止损价</label>
+                  <input type="number" className="input-soft w-full" placeholder="风险边界" value={formData.stopLossPrice || ''} onChange={(e) => setFormData({ ...formData, stopLossPrice: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div>
+                  <label className="text-sm text-[#6B7280] mb-1 block">下次复盘</label>
+                  <input type="date" className="input-soft w-full" value={formData.nextReviewDate} onChange={(e) => setFormData({ ...formData, nextReviewDate: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm text-[#6B7280] mb-1 block">买入/观察理由</label>
+                <textarea className="input-soft w-full h-24 resize-none" placeholder="这只股票为什么值得继续跟踪？关键验证点是什么？" value={formData.thesis} onChange={(e) => setFormData({ ...formData, thesis: e.target.value })}></textarea>
+              </div>
+              <div>
                 <label className="text-sm text-[#6B7280] mb-1 block">备注</label>
                 <textarea className="input-soft w-full h-20 resize-none" placeholder="股票备注..." value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })}></textarea>
               </div>
-              <button onClick={isEditing ? handleUpdateStock : handleAddStock} className="w-full btn-primary">
+              <Button
+                className="w-full"
+                onSuccess={async () => {
+                  if (isEditing) {
+                    handleUpdateStock();
+                  } else {
+                    handleAddStock();
+                  }
+                }}
+              >
                 {isEditing ? '保存修改' : '添加股票'}
-              </button>
+              </Button>
             </div>
       </AnimatedModal>
     </div>

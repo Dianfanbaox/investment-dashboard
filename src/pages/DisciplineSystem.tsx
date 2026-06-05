@@ -4,6 +4,11 @@ import { toast } from 'sonner';
 import { confirmDelete } from '@/lib/utils';
 import AnimatedModal from '@/components/AnimatedModal';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import PageHeader from '@/components/PageHeader';
+import AnimatedNumber from '@/components/AnimatedNumber';
+import MotionTabs from '@/components/MotionTabs';
+import { Button } from '@/components/Button';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const defaultRules: DisciplineRule[] = [
   { id: '1', name: '止损规则', description: '当股票价格下跌超过5%时自动止损', conditions: [{ id: 'c1', type: 'loss', operator: 'greater', value: 5, parameter: 'percentage' }], actions: [{ id: 'a1', type: 'alert', message: '股票价格下跌超过5%，建议止损', severity: 'warning' }], severity: 'high', enabled: true, createdAt: new Date(), updatedAt: new Date() },
@@ -177,70 +182,47 @@ export default function DisciplineSystem() {
 
   return (
     <div className="space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 md:gap-3">
-          <img src="/ip-characters.png" alt="" className="h-8 md:h-12 opacity-90" />
-          <div>
-            <h1 className="text-2xl font-bold text-[#1A1A2E]">交易纪律</h1>
-            <p className="text-sm text-[#9CA3AF] mt-1">设置和管理您的交易规则</p>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={exportRules} className="btn-secondary flex items-center gap-2">
-            <i className="fa-solid fa-download"></i>
-            <span>导出</span>
-          </button>
-          <label className="btn-secondary flex items-center gap-2 cursor-pointer">
-            <i className="fa-solid fa-upload"></i>
-            <span>导入</span>
-            <input type="file" accept=".json" onChange={importRules} className="hidden" />
-          </label>
-          <button onClick={() => setShowTemplateModal(true)} className="btn-secondary flex items-center gap-2">
-            <i className="fa-solid fa-layer-group"></i>
-            <span>规则模板</span>
-          </button>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2">
-            <i className="fa-solid fa-plus"></i>
-            <span>添加规则</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader title="交易纪律" subtitle="设置和管理您的交易规则" icon="fa-shield-halved">
+        <button onClick={() => setShowTemplateModal(true)} className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors flex items-center justify-center" title="规则模板">
+          <i className="fa-solid fa-layer-group text-sm"></i>
+        </button>
+        <button onClick={exportRules} className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors flex items-center justify-center" title="导出">
+          <i className="fa-solid fa-download text-sm"></i>
+        </button>
+        <label className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors flex items-center justify-center cursor-pointer" title="导入">
+          <i className="fa-solid fa-upload text-sm"></i>
+          <input type="file" accept=".json" onChange={importRules} className="hidden" />
+        </label>
+        <button onClick={() => setShowAddModal(true)} className="h-9 px-4 rounded-xl bg-white text-[#FF8E6E] font-medium text-sm hover:bg-white/90 transition-colors flex items-center gap-1.5">
+          <i className="fa-solid fa-plus text-xs"></i>
+          <span>添加规则</span>
+        </button>
+      </PageHeader>
 
       {/* Tab切换 */}
-      <div className="flex gap-2">
-        {[
+      <MotionTabs
+        tabs={[
           { id: 'rules', label: '规则管理', icon: 'fa-shield-halved' },
           { id: 'templates', label: '规则模板', icon: 'fa-layer-group' },
-          { id: 'violations', label: '违规记录', icon: 'fa-exclamation-triangle' },
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
-            className={`px-5 py-2.5 rounded-2xl text-sm font-medium transition-all flex items-center gap-2 ${
-              activeTab === tab.id ? 'bg-gradient-to-r from-[#FF8E6E] to-[#FFB299] text-white shadow-lg' : 'bg-white/80 text-[#6B7280] hover:bg-black/5'
-            }`}>
-            <i className={`fa-solid ${tab.icon}`}></i>
-            {tab.label}
-            {tab.id === 'violations' && violations.filter(v => v.status === 'pending').length > 0 && (
-              <span className="px-2 py-0.5 bg-[#FF3B30] text-white text-xs rounded-full">
-                {violations.filter(v => v.status === 'pending').length}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+          { id: 'violations', label: '违规记录', icon: 'fa-exclamation-triangle', count: violations.filter(v => v.status === 'pending').length || undefined },
+        ]}
+        activeId={activeTab}
+        onChange={(id) => setActiveTab(id as 'rules' | 'templates' | 'violations')}
+        layoutId="discipline-tabs"
+      />
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
         <div className="glass-card p-5 card-enter">
           <p className="text-sm text-[#9CA3AF] mb-1">纪律评分</p>
-          <p className="text-3xl font-bold text-[#1A1A2E]">{totalScore}</p>
+          <p className="text-3xl font-bold text-[#1A1A2E]"><AnimatedNumber value={totalScore} /></p>
           <div className="mt-3 h-2 bg-black/5 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-[#FF8E6E] to-[#5E5CE6] rounded-full" style={{ width: `${totalScore}%` }}></div>
           </div>
         </div>
         <div className="glass-card p-5 card-enter">
           <p className="text-sm text-[#9CA3AF] mb-1">已启用规则</p>
-          <p className="text-3xl font-bold text-[#34C759]">{rules.filter(r => r.enabled).length}</p>
+          <p className="text-3xl font-bold text-[#34C759]"><AnimatedNumber value={rules.filter(r => r.enabled).length} /></p>
           <p className="text-xs text-[#9CA3AF] mt-2">共 {rules.length} 条规则</p>
         </div>
         <div className="glass-card p-5 card-enter">
@@ -250,7 +232,7 @@ export default function DisciplineSystem() {
         </div>
         <div className="glass-card p-5 card-enter">
           <p className="text-sm text-[#9CA3AF] mb-1">高风险规则</p>
-          <p className="text-3xl font-bold text-[#FF3B30]">{rules.filter(r => r.severity === 'high').length}</p>
+          <p className="text-3xl font-bold text-[#FF3B30]"><AnimatedNumber value={rules.filter(r => r.severity === 'high').length} /></p>
           <p className="text-xs text-[#9CA3AF] mt-2">需要重点关注</p>
         </div>
       </div>
@@ -284,51 +266,61 @@ export default function DisciplineSystem() {
                 <button onClick={() => setShowTemplateModal(true)} className="btn-secondary">从模板添加</button>
               </div>
             ) : (
-              rules.map(rule => (
-                <div key={rule.id} className="p-5 bg-[#F8F9FC] rounded-2xl flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+              <AnimatePresence mode="popLayout">
+              {rules.map(rule => (
+                <motion.div
+                  key={rule.id}
+                  layout
+                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.96 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="p-4 sm:p-5 bg-[#F8F9FC] rounded-2xl relative"
+                >
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 ${
                       rule.severity === 'high' ? 'bg-gradient-to-br from-[#FF3B30] to-[#FF6961]' :
                       rule.severity === 'medium' ? 'bg-gradient-to-br from-[#FF8E6E] to-[#FFB299]' :
                       'bg-gradient-to-br from-[#5E5CE6] to-[#7B78E8]'
                     }`}>
-                      <i className={`fa-solid ${rule.conditions[0]?.type === 'loss' ? 'fa-shield-halved' : rule.conditions[0]?.type === 'volume' ? 'fa-chart-pie' : 'fa-coins'} text-white`}></i>
+                      <i className={`fa-solid ${rule.conditions[0]?.type === 'loss' ? 'fa-shield-halved' : rule.conditions[0]?.type === 'volume' ? 'fa-chart-pie' : 'fa-coins'} text-white text-sm sm:text-base`}></i>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-[#1A1A2E]">{rule.name}</h3>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm sm:text-base font-semibold text-[#1A1A2E]">{rule.name}</h3>
                         <span className={`tag ${rule.severity === 'high' ? 'tag-red' : rule.severity === 'medium' ? 'tag-orange' : 'tag-purple'}`}>
                           {rule.severity === 'high' ? '高风险' : rule.severity === 'medium' ? '中风险' : '低风险'}
                         </span>
                         {rule.enabled && <span className="tag tag-green">已启用</span>}
                       </div>
-                      <p className="text-sm text-[#9CA3AF] mt-1">{rule.description}</p>
-                      <div className="flex gap-3 mt-2 text-xs text-[#6B7280]">
-                        <span><i className="fa-solid fa-layer-group mr-1"></i>{rule.conditions.length} 个条件</span>
-                        <span><i className="fa-solid fa-bolt mr-1"></i>{rule.actions.length} 个操作</span>
+                      <p className="text-xs sm:text-sm text-[#9CA3AF] mt-1 line-clamp-2">{rule.description}</p>
+                      <div className="flex gap-2 sm:gap-3 mt-2 text-[10px] sm:text-xs text-[#6B7280] flex-wrap">
+                        <span><i className="fa-solid fa-layer-group mr-1"></i>{rule.conditions.length}条件</span>
+                        <span><i className="fa-solid fa-bolt mr-1"></i>{rule.actions.length}操作</span>
                         <span><i className="fa-solid fa-clock mr-1"></i>{new Date(rule.updatedAt).toLocaleDateString('zh-CN')}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => setViewingRule(rule)} className="p-2.5 rounded-xl bg-white hover:bg-black/5 transition-colors" title="查看详情">
-                      <i className="fa-solid fa-eye text-[#5E5CE6]"></i>
+                  <div className="flex items-center justify-end gap-2 sm:gap-3 mt-3 sm:mt-0 sm:absolute sm:right-5 sm:top-1/2 sm:-translate-y-1/2">
+                    <button onClick={() => setViewingRule(rule)} className="p-2 sm:p-2.5 rounded-xl bg-white hover:bg-black/5 transition-colors" title="查看详情">
+                      <i className="fa-solid fa-eye text-[#5E5CE6] text-xs sm:text-sm"></i>
                     </button>
-                    <button onClick={() => setEditingRule(rule)} className="p-2.5 rounded-xl bg-white hover:bg-black/5 transition-colors" title="编辑">
-                      <i className="fa-solid fa-edit text-[#FF8E6E]"></i>
+                    <button onClick={() => setEditingRule(rule)} className="p-2 sm:p-2.5 rounded-xl bg-white hover:bg-black/5 transition-colors" title="编辑">
+                      <i className="fa-solid fa-edit text-[#FF8E6E] text-xs sm:text-sm"></i>
                     </button>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" className="sr-only peer" checked={rule.enabled} onChange={() => toggleRule(rule.id)} />
-                      <div className="w-12 h-7 bg-black/10 peer-checked:bg-gradient-to-r peer-checked:from-[#FF8E6E] peer-checked:to-[#FFB299] rounded-full transition-all">
-                        <div className="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-all peer-checked:translate-x-5"></div>
+                      <div className="w-10 h-6 sm:w-12 sm:h-7 bg-black/10 peer-checked:bg-gradient-to-r peer-checked:from-[#FF8E6E] peer-checked:to-[#FFB299] rounded-full transition-all">
+                        <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-all peer-checked:translate-x-4 sm:peer-checked:translate-x-5"></div>
                       </div>
                     </label>
-                    <button onClick={() => deleteRule(rule.id)} className="p-2.5 rounded-xl bg-white hover:bg-black/5 transition-colors" title="删除">
-                      <i className="fa-solid fa-trash text-[#FF3B30]"></i>
+                    <button onClick={() => deleteRule(rule.id)} className="p-2 sm:p-2.5 rounded-xl bg-white hover:bg-black/5 transition-colors" title="删除">
+                      <i className="fa-solid fa-trash text-[#FF3B30] text-xs sm:text-sm"></i>
                     </button>
                   </div>
-                </div>
-              ))
+                </motion.div>
+              ))}
+              </AnimatePresence>
             )}
           </div>
         </div>
@@ -382,12 +374,21 @@ export default function DisciplineSystem() {
                 <p className="text-sm text-[#9CA3AF]">暂无违规记录</p>
               </div>
             ) : (
-              violations.map(violation => (
-                <div key={violation.id} className={`p-5 rounded-2xl border-l-4 ${
+              <AnimatePresence mode="popLayout">
+              {violations.map(violation => (
+                <motion.div
+                  key={violation.id}
+                  layout
+                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.96 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className={`p-5 rounded-2xl border-l-4 ${
                   violation.severity === 'error' ? 'border-[#FF3B30] bg-[#FF3B30]/5' :
                   violation.severity === 'warning' ? 'border-[#FF8E6E] bg-[#FF8E6E]/5' :
                   'border-[#5E5CE6] bg-[#5E5CE6]/5'
-                }`}>
+                }`}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
@@ -429,8 +430,9 @@ export default function DisciplineSystem() {
                       </button>
                     </div>
                   </div>
-                </div>
-              ))
+                </motion.div>
+              ))}
+              </AnimatePresence>
             )}
           </div>
         </div>
@@ -530,7 +532,7 @@ export default function DisciplineSystem() {
                   ))}
                 </div>
               </div>
-              <button onClick={saveRule} className="w-full btn-primary">保存规则</button>
+              <Button className="w-full" onSuccess={async () => saveRule()}>保存规则</Button>
             </div>
       </AnimatedModal>
 

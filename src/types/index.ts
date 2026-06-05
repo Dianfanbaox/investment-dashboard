@@ -39,6 +39,11 @@ export interface Stock {
   changePercent?: number;
   tags?: string[];
   notes?: string;
+  researchStatus?: 'new' | 'researching' | 'watching' | 'ready' | 'paused';
+  thesis?: string;
+  targetPrice?: number;
+  stopLossPrice?: number;
+  nextReviewDate?: string;
   addedAt: Date;
   poolId: string;
 }

@@ -2,6 +2,10 @@ import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import AnimatedModal from '@/components/AnimatedModal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
+import AnimatedNumber from '@/components/AnimatedNumber';
+import MotionTabs from '@/components/MotionTabs';
+import PageHeader from '@/components/PageHeader';
+import { Button } from '@/components/Button';
 
 const COLORS = ['#FF8E6E', '#5E5CE6', '#34C759', '#9CA3AF'];
 
@@ -130,32 +134,20 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center gap-3 md:gap-4">
-        <img src="/ip-characters.png" alt="" className="h-10 md:h-16 opacity-80" />
-        <div>
-          <h1 className="text-2xl font-bold text-[#1A1A2E]">系统设置</h1>
-          <p className="text-sm text-[#9CA3AF] mt-1">管理您的个人设置和数据</p>
-        </div>
-      </div>
+      <PageHeader title="系统设置" subtitle="管理您的个人设置和数据" iconSrc="/设置图标_pixian_ai.png" />
 
       {/* Tab切换 */}
-      <div className="flex gap-2 flex-wrap">
-        {[
+      <MotionTabs
+        tabs={[
           { id: 'profile', label: '个人资料', icon: 'fa-user' },
           { id: 'ai', label: 'AI 配置', icon: 'fa-robot' },
           { id: 'data', label: '数据管理', icon: 'fa-database' },
           { id: 'about', label: '关于', icon: 'fa-circle-info' },
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2.5 rounded-2xl text-sm font-medium transition-all flex items-center gap-2 ${
-              activeTab === tab.id ? 'bg-gradient-to-r from-[#FF8E6E] to-[#FFB299] text-white shadow-lg' : 'bg-white/80 text-[#6B7280] hover:bg-black/5'
-            }`}>
-            <i className={`fa-solid ${tab.icon}`}></i>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+        ]}
+        activeId={activeTab}
+        onChange={setActiveTab}
+        layoutId="settings-tabs"
+      />
 
       {/* 个人资料 */}
       {activeTab === 'profile' && (
@@ -182,7 +174,10 @@ export default function Settings() {
                       value={nickname}
                       onChange={(e) => setNickname(e.target.value)}
                     />
-                    <button onClick={saveProfile} className="btn-primary text-sm px-4">保存</button>
+                    <Button
+                      className="text-sm px-4"
+                      onSuccess={async () => saveProfile()}
+                    >保存</Button>
                     <button onClick={() => setIsEditingProfile(false)} className="btn-secondary text-sm px-4">取消</button>
                   </div>
                 ) : (
@@ -203,19 +198,19 @@ export default function Settings() {
             <h2 className="text-lg font-bold text-[#1A1A2E] mb-4">账户统计</h2>
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-[#F8F9FC] rounded-2xl text-center">
-                <p className="text-2xl font-bold text-[#FF8E6E]">{stats.trades.length}</p>
+                <p className="text-2xl font-bold text-[#FF8E6E]"><AnimatedNumber value={stats.trades.length} /></p>
                 <p className="text-xs text-[#9CA3AF] mt-1">交易记录</p>
               </div>
               <div className="p-4 bg-[#F8F9FC] rounded-2xl text-center">
-                <p className="text-2xl font-bold text-[#5E5CE6]">{stats.stockPool.length}</p>
+                <p className="text-2xl font-bold text-[#5E5CE6]"><AnimatedNumber value={stats.stockPool.length} /></p>
                 <p className="text-xs text-[#9CA3AF] mt-1">自选股票</p>
               </div>
               <div className="p-4 bg-[#F8F9FC] rounded-2xl text-center">
-                <p className="text-2xl font-bold text-[#34C759]">{stats.rules.length}</p>
+                <p className="text-2xl font-bold text-[#34C759]"><AnimatedNumber value={stats.rules.length} /></p>
                 <p className="text-xs text-[#9CA3AF] mt-1">纪律规则</p>
               </div>
               <div className="p-4 bg-[#F8F9FC] rounded-2xl text-center">
-                <p className="text-2xl font-bold text-[#5856D6]">{stats.violations.length}</p>
+                <p className="text-2xl font-bold text-[#5856D6]"><AnimatedNumber value={stats.violations.length} /></p>
                 <p className="text-xs text-[#9CA3AF] mt-1">违规记录</p>
               </div>
             </div>
@@ -259,7 +254,7 @@ export default function Settings() {
                 placeholder="sk-..."
               />
             </div>
-            <button onClick={saveAIConfig} className="btn-primary">保存配置</button>
+            <Button onSuccess={async () => saveAIConfig()}>保存配置</Button>
             {apiKey && (
               <div className="p-3 bg-[#34C759]/10 rounded-xl flex items-center gap-2">
                 <i className="fa-solid fa-check-circle text-[#34C759]"></i>
@@ -388,14 +383,14 @@ export default function Settings() {
       {/* 清空数据确认弹窗 */}
       <AnimatedModal isOpen={showClearConfirm} onClose={() => setShowClearConfirm(false)} maxWidth="max-w-sm">
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-[#FF3B30]/10 flex items-center justify-center mx-auto mb-4">
-                <i className="fa-solid fa-exclamation-triangle text-[#FF3B30] text-2xl"></i>
+              <div className="w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-3 sm:mb-4">
+                <img src="/clear-confirm-character.png" alt="" className="w-full h-full object-contain" />
               </div>
-              <h3 className="text-lg font-bold text-[#1A1A2E] mb-2">确认清空所有数据？</h3>
-              <p className="text-sm text-[#6B7280] mb-6">此操作不可撤销，所有交易记录、股票池、纪律规则等数据将被永久删除。</p>
-              <div className="flex gap-3">
+              <h3 className="text-base sm:text-lg font-bold text-[#1A1A2E] mb-1 sm:mb-2">确认清空所有数据？</h3>
+              <p className="text-xs sm:text-sm text-[#6B7280] mb-4 sm:mb-6">此操作不可撤销，所有交易记录、股票池、纪律规则等数据将被永久删除。</p>
+              <div className="flex gap-2 sm:gap-3">
                 <button onClick={() => setShowClearConfirm(false)} className="flex-1 btn-secondary">取消</button>
-                <button onClick={clearAllData} className="flex-1 py-3 px-6 rounded-2xl bg-[#FF3B30] text-white font-medium hover:bg-[#FF3B30]/90 transition-colors">确认清空</button>
+                <button onClick={clearAllData} className="flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-2xl bg-[#FF3B30] text-white font-medium hover:bg-[#FF3B30]/90 transition-colors text-sm sm:text-base">确认清空</button>
               </div>
             </div>
       </AnimatedModal>

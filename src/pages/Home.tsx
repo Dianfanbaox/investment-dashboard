@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { TradeRecord, DisciplineRule, Position } from '@/types';
 import { usePositions } from '@/hooks/usePositions';
 import { loadTradesFromStorage } from '@/lib/utils';
+import AnimatedNumber from '@/components/AnimatedNumber';
+import { useIsMobile } from '@/lib/breakpoints';
+import MobileCard from '@/components/MobileCard';
+import MobileCardField from '@/components/MobileCardField';
 
 // 从localStorage获取交易数据
 const getRecentTrades = (): (TradeRecord & { typeLabel: string; date: string; profit: number })[] => {
@@ -110,6 +114,7 @@ const calculateDisciplineScoreData = (positions: Position[]): { name: string, sc
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | '1Y'>('3M');
   const [trades, setTrades] = useState<TradeRecord[]>([]);
 
@@ -135,7 +140,7 @@ export default function Dashboard() {
     <div className="space-y-5">
       {/* ========== 顶部横幅 ========== */}
       <div
-        className="relative kawaii-border overflow-hidden"
+        className="relative soft-card overflow-hidden"
         style={{
           backgroundImage: "url('/banner.png')",
           backgroundSize: '100% auto',
@@ -148,12 +153,12 @@ export default function Dashboard() {
       {/* ========== 4列统计卡片 ========== */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 持仓总市值 */}
-        <div className="card-blue kawaii-border p-4 relative overflow-hidden card-enter">
+        <div className="card-blue soft-card p-4 relative overflow-hidden card-enter">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-bold text-gray-600">持仓总市值 <span className="text-yellow-500">●</span></p>
               <div className="mt-2">
-                <span className="text-2xl font-bold">¥{totalValue.toLocaleString()}</span>
+                <span className="text-2xl font-bold">¥<AnimatedNumber value={totalValue} format={(v) => v.toLocaleString()} /></span>
                 <p className="text-xs text-gray-500">+¥{totalCost.toLocaleString()}</p>
               </div>
             </div>
@@ -161,13 +166,13 @@ export default function Dashboard() {
         </div>
 
         {/* 浮动盈亏 */}
-        <div className="card-green kawaii-border p-4 relative card-enter">
+        <div className="card-green soft-card p-4 relative card-enter">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-bold text-gray-600">浮动盈亏 <span className="text-green-400">●</span></p>
               <div className="mt-2">
                 <span className={`text-2xl font-bold ${totalFloatingPnL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {totalFloatingPnL >= 0 ? '+' : ''}¥{Math.abs(totalFloatingPnL).toLocaleString()}
+                  {totalFloatingPnL >= 0 ? '+' : ''}¥<AnimatedNumber value={Math.abs(totalFloatingPnL)} format={(v) => v.toLocaleString()} />
                 </span>
                 <div className="mt-1">
                   <span className={`bg-white px-2 py-0.5 rounded-full text-[10px] border ${totalFloatingPnL >= 0 ? 'border-green-200 text-green-600' : 'border-red-200 text-red-600'}`}>
@@ -181,13 +186,13 @@ export default function Dashboard() {
         </div>
 
         {/* 已实现盈亏 */}
-        <div className="card-red kawaii-border p-4 relative card-enter">
+        <div className="card-red soft-card p-4 relative card-enter">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-bold text-gray-600">已实现盈亏 <span className="text-red-400">●</span></p>
               <div className="mt-2">
                 <span className={`text-2xl font-bold ${totalRealizedPnL >= 0 ? 'text-red-500' : 'text-red-500'}`}>
-                  ¥{Math.abs(totalRealizedPnL).toLocaleString()}
+                   ¥<AnimatedNumber value={Math.abs(totalRealizedPnL)} format={(v) => v.toLocaleString()} />
                 </span>
                 <p className="text-xs text-gray-500">{totalPnL >= 0 ? '+' : '-'}¥{Math.abs(totalPnL).toLocaleString()}</p>
               </div>
@@ -196,12 +201,12 @@ export default function Dashboard() {
         </div>
 
         {/* 持仓数量 */}
-        <div className="card-blue/50 kawaii-border p-4 relative card-enter">
+        <div className="card-blue/50 soft-card p-4 relative card-enter">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-bold text-gray-600">持仓股票 <span className="text-blue-400">●</span></p>
               <div className="mt-2">
-                <span className="text-2xl font-bold">{positions.length} <small className="text-sm font-normal">只</small></span>
+                 <span className="text-2xl font-bold"><AnimatedNumber value={positions.length} /> <small className="text-sm font-normal">只</small></span>
                 <div className="mt-2 h-2 w-full bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-orange-300 to-yellow-400 transition-all duration-500"
@@ -222,7 +227,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-12 gap-6">
         {/* 左侧 - 当前持仓 */}
         <div className="col-span-12 lg:col-span-9">
-          <div className="bg-white kawaii-border p-6">
+          <div className="bg-white soft-card p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold flex items-center gap-2">当前持仓 <span className="text-yellow-400">⭐</span></h3>
               <button
@@ -246,6 +251,37 @@ export default function Dashboard() {
                   添加第一笔买入
                 </button>
               </div>
+            ) : isMobile ? (
+                <div className="space-y-3">
+                  {positions.map((position) => (
+                    <MobileCard key={position.stockCode}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-8 h-8 rounded-full flex items-center justify-center font-bold bg-purple-100 text-purple-600 text-xs">
+                            {position.stockCode.substring(0, 2)}
+                          </span>
+                          <div>
+                            <p className="font-bold text-sm">{position.stockCode}</p>
+                            <p className="text-[10px] text-gray-400">{position.stockName}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-sm font-bold ${position.floatingPnLPct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {position.floatingPnLPct >= 0 ? '+' : ''}{position.floatingPnLPct.toFixed(2)}%
+                          </span>
+                          <p className={`text-xs ${position.floatingPnL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {position.floatingPnL >= 0 ? '+' : ''}¥{Math.abs(position.floatingPnL).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="border-t border-gray-100 pt-2">
+                        <MobileCardField label="持仓数量" value={position.shares} />
+                        <MobileCardField label="成本均价" value={`¥${position.avgCost.toFixed(2)}`} />
+                        <MobileCardField label="当前价" value={`¥${position.currentPrice.toFixed(2)}`} />
+                      </div>
+                    </MobileCard>
+                  ))}
+                </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm border-separate border-spacing-y-2">
@@ -293,7 +329,7 @@ export default function Dashboard() {
 
         {/* 右侧 - 账户概览 */}
         <div className="col-span-12 lg:col-span-3">
-          <div className="bg-white kawaii-border p-6">
+          <div className="bg-white soft-card p-6">
             <h3 className="text-lg font-bold flex items-center gap-2 mb-8">账户概览 <span className="text-yellow-400">⭐</span></h3>
             <div className="flex flex-col items-center">
               <div className="relative w-32 h-32 flex items-center justify-center">
@@ -309,7 +345,7 @@ export default function Dashboard() {
                   />
                 </svg>
                 <div className="absolute flex flex-col items-center">
-                  <span className="text-4xl font-bold">{disciplineScore}</span>
+                   <span className="text-4xl font-bold"><AnimatedNumber value={disciplineScore} /></span>
                   <span className="text-[10px] text-gray-400">评分</span>
                 </div>
                 <div className="absolute -top-4 -right-2 transform rotate-12">
@@ -338,10 +374,10 @@ export default function Dashboard() {
       </div>
 
       {/* ========== 收益走势 + 小贴士 双栏 ========== */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-6 items-stretch">
         {/* 左侧 - 收益走势 */}
         <div className="col-span-12 lg:col-span-9">
-          <div className="bg-white kawaii-border p-6">
+          <div className="bg-white soft-card p-6 h-full">
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="text-lg font-bold flex items-center gap-2">收益走势 <span className="text-yellow-400">⭐</span></h3>
@@ -402,20 +438,20 @@ export default function Dashboard() {
 
         {/* 右侧 - 小贴士 */}
         <div className="col-span-12 lg:col-span-3">
-          <div className="card-yellow kawaii-border p-6">
+          <div className="card-yellow soft-card p-6 h-full flex flex-col">
             <h3 className="text-lg font-bold flex items-center gap-2 mb-4">小贴士 <span className="text-yellow-400">⭐</span></h3>
-            <div className="flex flex-col items-center gap-4">
+            <div className="flex flex-col items-center gap-4 flex-1 justify-between">
               <div className="relative w-full">
                 <div className="bg-white hand-drawn-border p-4 text-sm leading-relaxed relative">
                   投资是一场马拉松，保持耐心，长期坚持会有收获哦！
                   <div className="absolute -bottom-3 left-8 w-6 h-6 bg-white border-b-2 border-r-2 border-gray-800 transform rotate-45"></div>
                 </div>
               </div>
-              <div className="w-full flex justify-between items-end mt-4">
+              <div className="w-full flex justify-between items-end">
                 <img
                   src="/tips-character.png"
                   alt=""
-                  className="h-24 w-auto object-contain"
+                  className="h-44 w-auto object-contain"
                 />
                 <div className="text-red-400 text-3xl pb-4">💕</div>
               </div>
@@ -425,7 +461,7 @@ export default function Dashboard() {
       </div>
 
       {/* ========== 最近交易 ========== */}
-      <div className="bg-white kawaii-border p-6">
+      <div className="bg-white soft-card p-6">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h3 className="text-lg font-bold flex items-center gap-2">最近交易 <span className="text-yellow-400">⭐</span></h3>
@@ -439,37 +475,69 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <table className="w-full text-left text-sm border-separate border-spacing-y-2">
-          <thead className="text-gray-400 font-normal">
-            <tr>
-              <th className="pb-2 font-normal">股票</th>
-              <th className="pb-2 font-normal">类型</th>
-              <th className="pb-2 font-normal">价格</th>
-              <th className="pb-2 font-normal">数量</th>
-              <th className="pb-2 font-normal">日期</th>
-              <th className="pb-2 font-normal">收益</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recentTradesData.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center py-10">
-                  <div className="flex flex-col items-center">
-                    <div className="w-14 h-14 rounded-full bg-[#FFF8E7] flex items-center justify-center mb-3">
-                      <i className="fa-solid fa-inbox text-xl text-[#BBB]"></i>
+        {recentTradesData.length === 0 ? (
+          <div className="text-center py-10">
+            <div className="w-14 h-14 rounded-full bg-[#FFF8E7] flex items-center justify-center mb-3 mx-auto">
+              <i className="fa-solid fa-inbox text-xl text-[#BBB]"></i>
+            </div>
+            <p className="text-sm text-[#999]">暂无交易记录</p>
+            <button
+              onClick={() => navigate('/trades')}
+              className="mt-3 btn-primary text-sm"
+            >
+              添加第一笔交易
+            </button>
+          </div>
+        ) : isMobile ? (
+          <div className="space-y-3">
+            {recentTradesData.map((trade, index) => (
+              <MobileCard key={index}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${index % 2 === 0 ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+                      {trade.stockCode.substring(0, 2)}
+                    </span>
+                    <div>
+                      <p className="font-bold text-sm">{trade.stockCode}</p>
+                      <p className="text-[10px] text-gray-400">{trade.stockName}</p>
                     </div>
-                    <p className="text-sm text-[#999]">暂无交易记录</p>
-                    <button
-                      onClick={() => navigate('/trades')}
-                      className="mt-3 btn-primary text-sm"
-                    >
-                      添加第一笔交易
-                    </button>
                   </div>
-                </td>
+                  <span className={`${trade.typeLabel === '买入' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'} px-2.5 py-1 rounded-full text-xs font-bold`}>
+                    {trade.typeLabel}
+                  </span>
+                </div>
+                <div className="border-t border-gray-100 pt-2">
+                  <MobileCardField label="价格" value={`¥${trade.price}`} />
+                  <MobileCardField label="数量" value={trade.quantity} />
+                  <MobileCardField label="日期" value={trade.date} />
+                  {trade.typeLabel === '卖出' && (
+                    <MobileCardField
+                      label="收益"
+                      value={
+                        <span className={trade.profit >= 0 ? 'text-green-500' : 'text-red-500'}>
+                          {trade.profit >= 0 ? '+' : ''}¥{trade.profit.toFixed(2)}
+                        </span>
+                      }
+                    />
+                  )}
+                </div>
+              </MobileCard>
+            ))}
+          </div>
+        ) : (
+          <table className="w-full text-left text-sm border-separate border-spacing-y-2">
+            <thead className="text-gray-400 font-normal">
+              <tr>
+                <th className="pb-2 font-normal">股票</th>
+                <th className="pb-2 font-normal">类型</th>
+                <th className="pb-2 font-normal">价格</th>
+                <th className="pb-2 font-normal">数量</th>
+                <th className="pb-2 font-normal">日期</th>
+                <th className="pb-2 font-normal">收益</th>
               </tr>
-            ) : (
-              recentTradesData.map((trade, index) => (
+            </thead>
+            <tbody>
+              {recentTradesData.map((trade, index) => (
                 <tr key={index} className={`${index % 2 === 0 ? 'bg-[#fff9e6]' : 'bg-white'} rounded-xl overflow-hidden`}>
                   <td className="p-4 rounded-l-2xl flex items-center gap-3">
                     <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${index % 2 === 0 ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
@@ -494,17 +562,17 @@ export default function Dashboard() {
                     </span>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* ========== 快捷操作 ========== */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <button
           onClick={() => navigate('/trades')}
-          className="bg-white kawaii-border p-4 flex flex-col items-center gap-2 hover:shadow-md transition-shadow"
+          className="bg-white soft-card p-4 flex flex-col items-center gap-2 hover:shadow-md transition-shadow"
         >
           <div className="w-10 h-10 rounded-full bg-[#ffe79c] border-2 border-[#4a4a4a] flex items-center justify-center">
             <i className="fa-solid fa-plus text-[#4a4a4a] text-sm"></i>
@@ -513,7 +581,7 @@ export default function Dashboard() {
         </button>
         <button
           onClick={() => navigate('/stock-pool')}
-          className="bg-white kawaii-border p-4 flex flex-col items-center gap-2 hover:shadow-md transition-shadow"
+          className="bg-white soft-card p-4 flex flex-col items-center gap-2 hover:shadow-md transition-shadow"
         >
           <div className="w-10 h-10 rounded-full bg-[#ffe79c] border-2 border-[#4a4a4a] flex items-center justify-center">
             <i className="fa-solid fa-star text-[#4a4a4a] text-sm"></i>
@@ -522,7 +590,7 @@ export default function Dashboard() {
         </button>
         <button
           onClick={() => navigate('/discipline')}
-          className="bg-white kawaii-border p-4 flex flex-col items-center gap-2 hover:shadow-md transition-shadow"
+          className="bg-white soft-card p-4 flex flex-col items-center gap-2 hover:shadow-md transition-shadow"
         >
           <div className="w-10 h-10 rounded-full bg-[#ffe79c] border-2 border-[#4a4a4a] flex items-center justify-center">
             <i className="fa-solid fa-shield-halved text-[#4a4a4a] text-sm"></i>
@@ -531,7 +599,7 @@ export default function Dashboard() {
         </button>
         <button
           onClick={() => navigate('/ai-analysis')}
-          className="bg-white kawaii-border p-4 flex flex-col items-center gap-2 hover:shadow-md transition-shadow"
+          className="bg-white soft-card p-4 flex flex-col items-center gap-2 hover:shadow-md transition-shadow"
         >
           <div className="w-10 h-10 rounded-full bg-[#ffe79c] border-2 border-[#4a4a4a] flex items-center justify-center">
             <i className="fa-solid fa-robot text-[#4a4a4a] text-sm"></i>

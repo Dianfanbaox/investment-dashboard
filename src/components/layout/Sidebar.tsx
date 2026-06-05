@@ -58,7 +58,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
                   `sidebar-link ${isActive ? 'active' : ''}`
                 }
                 onClick={() => {
-                  if (window.innerWidth < 768) {
+                  if (window.innerWidth < 1024) {
                     toggleSidebar();
                   }
                 }}

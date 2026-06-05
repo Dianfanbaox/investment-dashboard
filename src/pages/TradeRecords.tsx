@@ -7,6 +7,8 @@ import { checkTradeViolations, saveViolationRecord } from '@/hooks/useDiscipline
 import { tradesToCSV, downloadCSV, parseCSV, generateCSVTemplate } from '@/lib/csvUtils';
 import { getQuote, detectMarket } from '@/services/marketService';
 import AnimatedModal from '@/components/AnimatedModal';
+import { Button } from '@/components/Button';
+import PageHeader from '@/components/PageHeader';
 
 export const calculateHoldings = (trades: TradeRecord[]) => {
   const holdings: { [stockCode: string]: { stockCode: string, stockName: string, lots: { price: number; quantity: number }[] } } = {};
@@ -53,6 +55,7 @@ export default function TradeRecords() {
   const [formData, setFormData] = useState({ type: 'buy', price: 0, quantity: 0, fee: 0, timestamp: new Date(), tags: '', notes: '', stockCode: '', stockName: '' });
   const [isFetchingQuote, setIsFetchingQuote] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [displayCount, setDisplayCount] = useState(10);
 
   const validateTradeForm = () => {
     const errors: Record<string, string> = {};
@@ -129,6 +132,23 @@ export default function TradeRecords() {
     });
   }, [trades, filter]);
 
+  const tradeRows = useMemo(() => {
+    return filteredTrades.map(trade => {
+      const profit = calculateProfit(trade, trades);
+      const amount = trade.price * trade.quantity;
+      return {
+        trade,
+        profit,
+        amount,
+        date: format(new Date(trade.timestamp), 'yyyy-MM-dd'),
+        typeLabel: trade.type === 'buy' ? '买入' : '卖出',
+      };
+    });
+  }, [filteredTrades, trades]);
+
+  const displayedRows = tradeRows.slice(0, displayCount);
+  const hasMore = displayCount < tradeRows.length;
+
   const handleAddTrade = (newTrade: any) => {
     const tradeWithId = { ...newTrade, id: Date.now().toString() };
     setTrades([...trades, tradeWithId]);
@@ -193,30 +213,19 @@ export default function TradeRecords() {
 
   return (
     <div className="space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 md:gap-3">
-          <img src="/ip-characters.png" alt="" className="h-8 md:h-12 opacity-90" />
-          <div>
-            <h1 className="text-2xl font-bold text-[#1A1A2E]">交易记录</h1>
-            <p className="text-sm text-[#9CA3AF] mt-1">管理和分析您的交易数据</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
-          <button onClick={handleExportCSV} className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
-            <i className="fa-solid fa-download"></i>
-            <span className="hidden sm:inline">导出</span>
-          </button>
-          <label className="btn-secondary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 cursor-pointer">
-            <i className="fa-solid fa-upload"></i>
-            <span className="hidden sm:inline">导入</span>
-          </label>
-          <button onClick={() => setIsAddTradeOpen(true)} className="btn-primary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4">
-            <i className="fa-solid fa-plus"></i>
-            <span>添加</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader title="交易记录" subtitle="管理和分析您的交易数据" iconSrc="/交易记录图标_pixian_ai.png">
+        <button onClick={handleExportCSV} className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors flex items-center justify-center" title="导出">
+          <i className="fa-solid fa-download text-sm"></i>
+        </button>
+        <label className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors flex items-center justify-center cursor-pointer" title="导入">
+          <i className="fa-solid fa-upload text-sm"></i>
+          <input type="file" accept=".csv" className="hidden" onChange={handleImportCSV} />
+        </label>
+        <button onClick={() => setIsAddTradeOpen(true)} className="h-9 px-4 rounded-xl bg-white text-[#FF8E6E] font-medium text-sm hover:bg-white/90 transition-colors flex items-center gap-1.5">
+          <i className="fa-solid fa-plus text-xs"></i>
+          <span>添加</span>
+        </button>
+      </PageHeader>
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -350,11 +359,11 @@ export default function TradeRecords() {
       )}
 
       {/* 交易记录表格 */}
-      <div className="soft-card p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="soft-card p-4 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
           <h2 className="text-lg font-bold text-[#1A1A2E]">交易列表</h2>
-          <div className="flex gap-3">
-            <input type="text" placeholder="搜索股票代码..." className="input-soft text-sm w-48" value={filter.stockCode} onChange={(e) => setFilter({ ...filter, stockCode: e.target.value })} />
+          <div className="grid grid-cols-[1fr_auto] gap-2 sm:flex sm:gap-3">
+            <input type="text" placeholder="搜索股票代码..." className="input-soft min-w-0 text-sm" value={filter.stockCode} onChange={(e) => setFilter({ ...filter, stockCode: e.target.value })} />
             <select className="input-soft text-sm" value={filter.tradeType} onChange={(e) => setFilter({ ...filter, tradeType: e.target.value })}>
               <option value="all">全部类型</option>
               <option value="buy">买入</option>
@@ -362,57 +371,129 @@ export default function TradeRecords() {
             </select>
           </div>
         </div>
-        <div className="overflow-x-auto">
-        <table className="data-table min-w-[600px]">
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>股票</th>
-              <th>类型</th>
-              <th>价格</th>
-              <th>数量</th>
-              <th>金额</th>
-              <th>手续费</th>
-              <th>收益</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTrades.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-12">
-                <img src="/ip-characters.png" alt="" className="h-16 md:h-24 mx-auto mb-4 opacity-80" />
-                <p className="text-sm text-[#9CA3AF]">暂无交易记录</p>
-              </td></tr>
-            ) : (
-              filteredTrades.map((trade) => (
-                <tr key={trade.id}>
-                  <td className="text-[#9CA3AF] whitespace-nowrap">{format(new Date(trade.timestamp), 'yyyy-MM-dd')}</td>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#5E5CE6]/10 to-[#7B78E8]/10 flex items-center justify-center">
-                        <span className="text-xs font-bold text-[#5E5CE6]">{trade.stockCode.substring(0, 2)}</span>
+        {tradeRows.length === 0 ? (
+          <div className="text-center py-12">
+            <img src="/ip-characters.png" alt="" className="h-16 md:h-24 mx-auto mb-4 opacity-80" />
+            <p className="text-sm text-[#9CA3AF]">暂无交易记录</p>
+          </div>
+        ) : (
+          <>
+            <div className="md:hidden space-y-3">
+              {displayedRows.map(({ trade, profit, amount, date, typeLabel }) => {
+                const isBuy = trade.type === 'buy';
+                const isProfit = profit >= 0;
+
+                return (
+                  <article key={trade.id} className="rounded-2xl border border-black/5 bg-[#F8F9FC] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex items-center gap-3">
+                        <div className={`h-11 w-11 shrink-0 rounded-2xl flex items-center justify-center ${isBuy ? 'bg-[#34C759]/10' : 'bg-[#FF8E6E]/10'}`}>
+                          <span className={`text-xs font-bold ${isBuy ? 'text-[#34C759]' : 'text-[#FF8E6E]'}`}>
+                            {trade.stockCode.substring(0, 2)}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-[#1A1A2E]">{trade.stockCode}</p>
+                            <span className={`tag shrink-0 ${isBuy ? 'tag-green' : 'tag-red'}`}>{typeLabel}</span>
+                          </div>
+                          <p className="truncate text-xs text-[#9CA3AF]">{trade.stockName}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-[#1A1A2E]">{trade.stockCode}</p>
-                        <p className="text-xs text-[#9CA3AF]">{trade.stockName}</p>
+                      <div className="shrink-0 text-right">
+                        <p className={`text-base font-bold ${isProfit ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
+                          {isProfit ? '+' : ''}¥{profit.toFixed(2)}
+                        </p>
+                        <p className="text-xs text-[#9CA3AF]">{date}</p>
                       </div>
                     </div>
-                  </td>
-                  <td><span className={`tag ${trade.type === 'buy' ? 'tag-green' : 'tag-red'}`}>{trade.type === 'buy' ? '买入' : '卖出'}</span></td>
-                  <td className="text-[#6B7280]">¥{trade.price.toFixed(2)}</td>
-                  <td className="text-[#6B7280]">{trade.quantity}</td>
-                  <td className="text-[#6B7280]">¥{(trade.price * trade.quantity).toFixed(2)}</td>
-                  <td className="text-[#6B7280]">¥{trade.fee.toFixed(2)}</td>
-                  <td className={calculateProfit(trade, trades) >= 0 ? 'gain' : 'loss'}>
-                    <span className={`font-semibold ${calculateProfit(trade, trades) >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
-                      {calculateProfit(trade, trades) >= 0 ? '+' : ''}¥{calculateProfit(trade, trades).toFixed(2)}
-                    </span>
-                  </td>
-                </tr>
-              ))
+
+                    <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                      <div className="rounded-xl bg-white px-3 py-2">
+                        <p className="text-xs text-[#9CA3AF]">成交价格</p>
+                        <p className="mt-1 font-semibold text-[#1A1A2E]">¥{trade.price.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-xl bg-white px-3 py-2">
+                        <p className="text-xs text-[#9CA3AF]">成交数量</p>
+                        <p className="mt-1 font-semibold text-[#1A1A2E]">{trade.quantity}</p>
+                      </div>
+                      <div className="rounded-xl bg-white px-3 py-2">
+                        <p className="text-xs text-[#9CA3AF]">成交金额</p>
+                        <p className="mt-1 font-semibold text-[#1A1A2E]">¥{amount.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-xl bg-white px-3 py-2">
+                        <p className="text-xs text-[#9CA3AF]">手续费</p>
+                        <p className="mt-1 font-semibold text-[#1A1A2E]">¥{trade.fee.toFixed(2)}</p>
+                      </div>
+                    </div>
+
+                    {trade.notes && (
+                      <p className="mt-3 line-clamp-2 rounded-xl bg-white px-3 py-2 text-xs text-[#6B7280]">
+                        {trade.notes}
+                      </p>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
+              <table className="data-table min-w-[600px]">
+                <thead>
+                  <tr>
+                    <th>日期</th>
+                    <th>股票</th>
+                    <th>类型</th>
+                    <th>价格</th>
+                    <th>数量</th>
+                    <th>金额</th>
+                    <th>手续费</th>
+                    <th>收益</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedRows.map(({ trade, profit, amount, date, typeLabel }) => (
+                    <tr key={trade.id}>
+                      <td className="text-[#9CA3AF] whitespace-nowrap">{date}</td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#5E5CE6]/10 to-[#7B78E8]/10 flex items-center justify-center">
+                            <span className="text-xs font-bold text-[#5E5CE6]">{trade.stockCode.substring(0, 2)}</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-[#1A1A2E]">{trade.stockCode}</p>
+                            <p className="text-xs text-[#9CA3AF]">{trade.stockName}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td><span className={`tag ${trade.type === 'buy' ? 'tag-green' : 'tag-red'}`}>{typeLabel}</span></td>
+                      <td className="text-[#6B7280]">¥{trade.price.toFixed(2)}</td>
+                      <td className="text-[#6B7280]">{trade.quantity}</td>
+                      <td className="text-[#6B7280]">¥{amount.toFixed(2)}</td>
+                      <td className="text-[#6B7280]">¥{trade.fee.toFixed(2)}</td>
+                      <td className={profit >= 0 ? 'gain' : 'loss'}>
+                        <span className={`font-semibold ${profit >= 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
+                          {profit >= 0 ? '+' : ''}¥{profit.toFixed(2)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {hasMore && (
+              <div className="flex justify-center mt-4">
+                <button
+                  onClick={() => setDisplayCount(prev => prev + 10)}
+                  className="btn-secondary flex items-center gap-2 text-sm px-6 py-2.5"
+                >
+                  <i className="fa-solid fa-chevron-down"></i>
+                  加载更多（还有 {tradeRows.length - displayCount} 条）
+                </button>
+              </div>
             )}
-          </tbody>
-        </table>
-        </div>
+          </>
+        )}
       </div>
 
       {/* 添加交易弹窗 */}
@@ -470,10 +551,13 @@ export default function TradeRecords() {
                 <label className="text-sm text-[#6B7280] mb-1 block">备注</label>
                 <textarea className="input-soft w-full h-20 resize-none" placeholder="交易原因..." value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })}></textarea>
               </div>
-              <button onClick={() => {
-                if (!validateTradeForm()) return;
-                handleAddTrade({ ...formData, timestamp: formData.timestamp });
-              }} className="w-full btn-primary">保存交易</button>
+              <Button
+                className="w-full"
+                onSuccess={async () => {
+                  if (!validateTradeForm()) return;
+                  handleAddTrade({ ...formData, timestamp: formData.timestamp });
+                }}
+              >保存交易</Button>
             </div>
       </AnimatedModal>
     </div>

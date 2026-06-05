@@ -32,7 +32,7 @@ export default function AnimatedModal({ isOpen, onClose, children, maxWidth = 'm
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={onClose}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -40,12 +40,12 @@ export default function AnimatedModal({ isOpen, onClose, children, maxWidth = 'm
           transition={{ duration: 0.2 }}
         >
           <motion.div
-            className={`soft-card w-full ${maxWidth} p-6 ${className}`}
+            className={`soft-card modal-panel w-full ${maxWidth} p-4 sm:p-6 rounded-t-2xl sm:rounded-2xl max-h-[85vh] sm:max-h-[80vh] overflow-y-auto ${className}`}
             onClick={(e) => e.stopPropagation()}
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
           >
             {children}
           </motion.div>

@@ -4,6 +4,8 @@ import { TradingInsight } from '@/types';
 import { toast } from 'sonner';
 import { confirmDelete } from '@/lib/utils';
 import AnimatedModal from '@/components/AnimatedModal';
+import { Button } from '@/components/Button';
+import PageHeader from '@/components/PageHeader';
 
 export default function TradingInsights() {
   const [insights, setInsights] = useState<TradingInsight[]>(() => {
@@ -66,20 +68,12 @@ export default function TradingInsights() {
 
   return (
     <div className="space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 md:gap-3">
-          <img src="/ip-characters.png" alt="" className="h-8 md:h-12 opacity-90" />
-          <div>
-            <h1 className="text-2xl font-bold text-[#1A1A2E]">交易心得</h1>
-            <p className="text-sm text-[#9CA3AF] mt-1">记录和回顾您的投资思考</p>
-          </div>
-        </div>
-        <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-          <i className="fa-solid fa-plus"></i>
+      <PageHeader title="交易心得" subtitle="记录和回顾您的投资思考" icon="fa-lightbulb">
+        <button onClick={() => setShowAddModal(true)} className="h-9 px-4 rounded-xl bg-white text-[#FF8E6E] font-medium text-sm hover:bg-white/90 transition-colors flex items-center gap-1.5">
+          <i className="fa-solid fa-plus text-xs"></i>
           <span>写心得</span>
         </button>
-      </div>
+      </PageHeader>
 
       {/* 搜索和标签 */}
       <div className="flex flex-wrap gap-4 items-center">
@@ -158,7 +152,7 @@ export default function TradingInsights() {
                 <label className="text-sm text-[#6B7280] mb-1 block">标签</label>
                 <input type="text" className="input-soft w-full" placeholder="用逗号分隔，如：交易反思,止损" value={formData.tags} onChange={(e) => setFormData({ ...formData, tags: e.target.value })} />
               </div>
-              <button onClick={handleSaveInsight} className="w-full btn-primary">保存</button>
+              <Button className="w-full" onSuccess={async () => handleSaveInsight()}>保存</Button>
             </div>
       </AnimatedModal>
     </div>

@@ -5,6 +5,9 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { sendMessageToClaude } from '@/services/aiService';
 import { usePositions } from '@/hooks/usePositions';
 import { TradeRecord } from '@/types';
+import MotionTabs from '@/components/MotionTabs';
+import { Button } from '@/components/Button';
+import PageHeader from '@/components/PageHeader';
 
 interface ChatMessage {
   id: string;
@@ -179,20 +182,11 @@ export default function AIAnalysis() {
 
   return (
     <div className="space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 md:gap-3">
-          <img src="/ip-characters.png" alt="" className="h-8 md:h-12 opacity-90" />
-          <div>
-            <h1 className="text-2xl font-bold text-[#1A1A2E]">AI分析</h1>
-            <p className="text-sm text-[#9CA3AF] mt-1">智能投资分析和助手</p>
-          </div>
-        </div>
-        <button onClick={() => setIsApiConfigured(!isApiConfigured)} className="btn-secondary flex items-center gap-2">
-          <i className="fa-solid fa-key"></i>
-          <span>API设置</span>
+      <PageHeader title="AI分析" subtitle="智能投资分析和助手" iconSrc="/AI分析图标_pixian_ai.png">
+        <button onClick={() => setIsApiConfigured(!isApiConfigured)} className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors flex items-center justify-center" title="API设置">
+          <i className="fa-solid fa-key text-sm"></i>
         </button>
-      </div>
+      </PageHeader>
 
       {/* API Key 设置弹窗 */}
       {!isApiConfigured && (
@@ -230,32 +224,27 @@ export default function AIAnalysis() {
                 onChange={(e) => setApiKeyInput(e.target.value)}
               />
             </div>
-            <button onClick={saveApiKey} className="w-full btn-primary">保存配置</button>
+            <Button className="w-full" onSuccess={async () => saveApiKey()}>保存配置</Button>
           </div>
         </div>
       )}
 
       {/* Tab切换 */}
-      <div className="flex gap-2">
-        {[
+      <MotionTabs
+        tabs={[
           { id: 'chat', label: 'AI对话', icon: 'fa-comments' },
           { id: 'performance', label: '业绩分析', icon: 'fa-chart-line' },
           { id: 'habits', label: '交易习惯', icon: 'fa-brain' },
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2.5 rounded-2xl text-sm font-medium transition-all flex items-center gap-2 ${
-              activeTab === tab.id ? 'bg-gradient-to-r from-[#FF8E6E] to-[#FFB299] text-white shadow-lg' : 'bg-white/80 text-[#6B7280] hover:bg-black/5'
-            }`}>
-            <i className={`fa-solid ${tab.icon}`}></i>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+        ]}
+        activeId={activeTab}
+        onChange={setActiveTab}
+        layoutId="ai-analysis-tabs"
+      />
 
       {/* AI对话 */}
       {activeTab === 'chat' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 soft-card p-6 flex flex-col h-[500px]">
+          <div className="lg:col-span-2 soft-card p-4 sm:p-6 flex flex-col h-[60vh] sm:h-[500px]">
             <div className="flex-1 overflow-y-auto space-y-4 mb-4">
               {chatHistory.map(msg => (
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -339,7 +328,7 @@ export default function AIAnalysis() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mt-6">
                 <div className="p-4 bg-[#F8F9FC] rounded-2xl text-center">
                   <p className="text-lg font-bold text-[#34C759]">¥{performanceData.filter(d => d.盈亏 > 0).reduce((s, d) => s + d.盈亏, 0).toFixed(0)}</p>
                   <p className="text-xs text-[#9CA3AF]">总盈利</p>
