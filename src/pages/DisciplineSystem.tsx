@@ -182,7 +182,7 @@ export default function DisciplineSystem() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="交易纪律" subtitle="设置和管理您的交易规则" icon="fa-shield-halved">
+      <PageHeader title="交易纪律" subtitle="设置和管理您的交易规则" iconSrc="/交易纪律图标_pixian_ai.png">
         <button onClick={() => setShowTemplateModal(true)} className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors flex items-center justify-center" title="规则模板">
           <i className="fa-solid fa-layer-group text-sm"></i>
         </button>

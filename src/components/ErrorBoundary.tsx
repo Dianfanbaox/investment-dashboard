@@ -31,13 +31,13 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-          <div className="max-w-lg w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-left">
-            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-              <i className="fa-solid fa-exclamation-triangle text-red-600 dark:text-red-400 text-2xl"></i>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+          <div className="max-w-lg w-full bg-white rounded-xl shadow-lg p-6 text-left">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <i className="fa-solid fa-exclamation-triangle text-red-600 text-2xl"></i>
             </div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 text-center">出错了</h1>
-            <pre className="bg-gray-100 dark:bg-gray-900 rounded-lg p-4 text-sm text-red-600 dark:text-red-400 overflow-auto max-h-64 mb-4 whitespace-pre-wrap">
+            <h1 className="text-xl font-bold text-gray-900 mb-2 text-center">出错了</h1>
+            <pre className="bg-gray-100 rounded-lg p-4 text-sm text-red-600 overflow-auto max-h-64 mb-4 whitespace-pre-wrap">
               {this.state.error?.message}
               {'\n\n'}
               {this.state.error?.stack}

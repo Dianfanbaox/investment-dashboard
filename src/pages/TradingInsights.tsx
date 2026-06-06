@@ -68,7 +68,7 @@ export default function TradingInsights() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="交易心得" subtitle="记录和回顾您的投资思考" icon="fa-lightbulb">
+      <PageHeader title="交易心得" subtitle="记录和回顾您的投资思考" iconSrc="/交易心得图标_pixian_ai.png">
         <button onClick={() => setShowAddModal(true)} className="h-9 px-4 rounded-xl bg-white text-[#FF8E6E] font-medium text-sm hover:bg-white/90 transition-colors flex items-center gap-1.5">
           <i className="fa-solid fa-plus text-xs"></i>
           <span>写心得</span>

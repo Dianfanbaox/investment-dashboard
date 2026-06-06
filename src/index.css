@@ -30,7 +30,7 @@
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'ZCOOL KuaiLe', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+  font-family: 'LXGW WenKai', '霞鹜文楷', -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
@@ -430,14 +430,6 @@ body {
   border-radius: 4px;
 }
 
-/* 头像 */
-.user-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
 /* 圆角规范 */
 .rounded-2xl {
   border-radius: 16px;
@@ -445,40 +437,6 @@ body {
 
 .rounded-3xl {
   border-radius: 24px;
-}
-
-/* 内发光效果 */
-.inner-glow {
-  box-shadow: inset 0 2px 8px rgba(255, 142, 110, 0.1);
-}
-
-/* ========== Kawaii 设计系统 ========== */
-
-/* Kawaii 边框样式 */
-.kawaii-border {
-  border: 2.5px solid #4a4a4a;
-  border-radius: 24px;
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.05);
-  transform: translateY(0) scale(1);
-  transition:
-    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 180ms ease,
-    border-color 180ms ease,
-    filter 180ms ease;
-  will-change: transform;
-}
-
-.kawaii-border:hover {
-  border-color: #3f3f3f;
-  box-shadow: 6px 7px 0px rgba(0, 0, 0, 0.08), 0 10px 24px rgba(255, 142, 110, 0.10);
-  filter: saturate(1.03);
-  transform: translateY(-3px) scale(1.005);
-}
-
-.kawaii-border:active {
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.06);
-  transform: translateY(-1px) scale(0.992);
-  transition-duration: 80ms;
 }
 
 /* 手绘边框样式 */
@@ -502,15 +460,6 @@ body {
 
 .card-yellow {
   background-color: #fff9e6;
-}
-
-/* 装饰元素 */
-.decor-star {
-  color: #fbbf24;
-}
-
-.decor-emoji {
-  font-size: 1.5rem;
 }
 
 /* 表单验证样式 */
@@ -629,7 +578,6 @@ button:not(:disabled):active {
 @media (prefers-reduced-motion: reduce) {
   .glass-card,
   .soft-card,
-  .kawaii-border,
   .btn-primary,
   .btn-secondary,
   button {
@@ -639,10 +587,8 @@ button:not(:disabled):active {
 
   .glass-card:hover,
   .soft-card:hover,
-  .kawaii-border:hover,
   .glass-card:active,
   .soft-card:not(.modal-panel):active,
-  .kawaii-border:active,
   .btn-primary:hover,
   .btn-secondary:hover,
   .btn-primary:active,
